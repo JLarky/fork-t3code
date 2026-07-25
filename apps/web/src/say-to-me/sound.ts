@@ -1,7 +1,8 @@
 /**
- * Send "ding" ported from the Say To Me app (`src/sound.ts`) so composing in T3
- * Code sounds the same as composing there. The tone is synthesized rather than
- * shipped as an asset, which keeps the fork free of binary files.
+ * Sounds ported from the Say To Me app (`src/sound.ts`) so T3 Code sounds the
+ * same: a short rising "ding" when a message is sent, and a softer two-tone
+ * chime when a session goes idle. Tones are synthesized rather than shipped as
+ * assets, which keeps the fork free of binary files.
  */
 
 const SEND_DING = {
@@ -12,8 +13,21 @@ const SEND_DING = {
   endFrequency: 587,
 } as const;
 
+const IDLE_COMPLETION_DING = {
+  duration: 0.58,
+  volume: 0.12,
+  type: "sine",
+  firstDuration: 0.26,
+  firstFrequency: 370,
+  secondDelay: 0.28,
+  secondDuration: 0.3,
+  secondFrequency: 554,
+} as const;
+
 const SAMPLE_RATE = 44100;
 const WAV_HEADER_BYTES = 44;
+
+export const IDLE_COMPLETION_DING_DURATION_MS = Math.round(IDLE_COMPLETION_DING.duration * 1000);
 
 function audioContextConstructor(): typeof AudioContext | undefined {
   if (typeof window === "undefined") return undefined;
@@ -21,9 +35,15 @@ function audioContextConstructor(): typeof AudioContext | undefined {
   return window.AudioContext ?? extendedWindow.webkitAudioContext;
 }
 
-/** Builds a mono 16-bit PCM WAV of the send ding as a base64 data URL. */
-export function createSendDingWavUrl(): string {
-  const samples = Math.floor(SAMPLE_RATE * SEND_DING.duration);
+/**
+ * Builds a mono 16-bit PCM WAV data URL. `amplitudeAt` receives the sample
+ * index and its time offset in seconds, and returns amplitude in [-1, 1].
+ */
+function createWavUrl(
+  duration: number,
+  amplitudeAt: (index: number, time: number) => number,
+): string {
+  const samples = Math.floor(SAMPLE_RATE * duration);
   const dataBytes = samples * 2;
   const view = new DataView(new ArrayBuffer(WAV_HEADER_BYTES + dataBytes));
   let offset = 0;
@@ -57,13 +77,8 @@ export function createSendDingWavUrl(): string {
   writeUint32(dataBytes);
 
   for (let index = 0; index < samples; index += 1) {
-    const progress = index / samples;
-    const envelope = Math.sin(Math.PI * progress) * (1 - progress * 0.45);
-    const frequency =
-      SEND_DING.startFrequency + (SEND_DING.endFrequency - SEND_DING.startFrequency) * progress;
-    const sample =
-      Math.sin((2 * Math.PI * frequency * index) / SAMPLE_RATE) * envelope * SEND_DING.volume;
-    view.setInt16(offset, Math.max(-1, Math.min(1, sample)) * 0x7fff, true);
+    const amplitude = amplitudeAt(index, index / SAMPLE_RATE);
+    view.setInt16(offset, Math.max(-1, Math.min(1, amplitude)) * 0x7fff, true);
     offset += 2;
   }
 
@@ -72,29 +87,109 @@ export function createSendDingWavUrl(): string {
   return `data:audio/wav;base64,${btoa(binary)}`;
 }
 
-let cachedUrl: string | null = null;
-let cachedAudio: HTMLAudioElement | null = null;
-let cachedContext: AudioContext | null = null;
-
-function prepareAudio(): HTMLAudioElement | null {
-  if (typeof Audio === "undefined") return null;
-  cachedUrl ??= createSendDingWavUrl();
-  if (!cachedAudio) {
-    cachedAudio = new Audio(cachedUrl);
-    cachedAudio.preload = "auto";
-    cachedAudio.load();
-  }
-  return cachedAudio;
+export function createSendDingWavUrl(): string {
+  const samples = Math.floor(SAMPLE_RATE * SEND_DING.duration);
+  return createWavUrl(SEND_DING.duration, (index) => {
+    const progress = index / samples;
+    const envelope = Math.sin(Math.PI * progress) * (1 - progress * 0.45);
+    const frequency =
+      SEND_DING.startFrequency + (SEND_DING.endFrequency - SEND_DING.startFrequency) * progress;
+    return Math.sin((2 * Math.PI * frequency * index) / SAMPLE_RATE) * envelope * SEND_DING.volume;
+  });
 }
 
-/**
- * Plays the send ding. Callers should invoke this from a user gesture (the send
- * action) so autoplay policies allow it. Resolves false only when the browser
- * offers no usable audio path; a blocked element playback falls back to Web
- * Audio rather than failing.
- */
-export async function playSendDing({ volumeScale = 1 } = {}): Promise<boolean> {
-  const audio = prepareAudio();
+export function createIdleCompletionDingWavUrl(): string {
+  const firstEnd = IDLE_COMPLETION_DING.firstDuration;
+  const secondStart = IDLE_COMPLETION_DING.secondDelay;
+  const secondEnd = secondStart + IDLE_COMPLETION_DING.secondDuration;
+
+  return createWavUrl(IDLE_COMPLETION_DING.duration, (index, time) => {
+    const frequency =
+      time < firstEnd ? IDLE_COMPLETION_DING.firstFrequency : IDLE_COMPLETION_DING.secondFrequency;
+    const toneProgress =
+      time < firstEnd
+        ? time / IDLE_COMPLETION_DING.firstDuration
+        : (time - secondStart) / IDLE_COMPLETION_DING.secondDuration;
+    const envelope =
+      time <= firstEnd || (time >= secondStart && time <= secondEnd)
+        ? Math.sin(Math.PI * Math.max(0, Math.min(1, toneProgress)))
+        : 0;
+    return (
+      Math.sin((2 * Math.PI * frequency * index) / SAMPLE_RATE) *
+      envelope *
+      IDLE_COMPLETION_DING.volume
+    );
+  });
+}
+
+type WebAudioTone = {
+  frequency: number;
+  duration: number;
+  start: number;
+  volume: number;
+  attack: number;
+};
+
+type Ding = {
+  createUrl: () => string;
+  oscillatorType: OscillatorType;
+  /** Frequency slide applied to the first tone, used by the send ding. */
+  glideTo?: { frequency: number; after: number };
+  tones: (volumeScale: number) => WebAudioTone[];
+};
+
+const sendDing: Ding = {
+  createUrl: createSendDingWavUrl,
+  oscillatorType: SEND_DING.type,
+  glideTo: { frequency: SEND_DING.endFrequency, after: 0.1 },
+  tones: (volumeScale) => [
+    {
+      frequency: SEND_DING.startFrequency,
+      duration: SEND_DING.duration,
+      start: 0,
+      volume: SEND_DING.volume * 0.28 * volumeScale,
+      attack: 0.01,
+    },
+  ],
+};
+
+const idleCompletionDing: Ding = {
+  createUrl: createIdleCompletionDingWavUrl,
+  oscillatorType: IDLE_COMPLETION_DING.type,
+  tones: (volumeScale) => [
+    {
+      frequency: IDLE_COMPLETION_DING.firstFrequency,
+      duration: IDLE_COMPLETION_DING.firstDuration,
+      start: 0,
+      volume: IDLE_COMPLETION_DING.volume * volumeScale,
+      attack: 0.015,
+    },
+    {
+      frequency: IDLE_COMPLETION_DING.secondFrequency,
+      duration: IDLE_COMPLETION_DING.secondDuration,
+      start: IDLE_COMPLETION_DING.secondDelay,
+      volume: IDLE_COMPLETION_DING.volume * 0.75 * volumeScale,
+      attack: 0.015,
+    },
+  ],
+};
+
+const audioCache = new WeakMap<Ding, HTMLAudioElement>();
+let sharedContext: AudioContext | null = null;
+
+function prepareAudio(ding: Ding): HTMLAudioElement | null {
+  if (typeof Audio === "undefined") return null;
+  const cached = audioCache.get(ding);
+  if (cached) return cached;
+  const audio = new Audio(ding.createUrl());
+  audio.preload = "auto";
+  audio.load();
+  audioCache.set(ding, audio);
+  return audio;
+}
+
+async function play(ding: Ding, volumeScale: number): Promise<boolean> {
+  const audio = prepareAudio(ding);
   if (audio) {
     try {
       audio.pause();
@@ -111,35 +206,61 @@ export async function playSendDing({ volumeScale = 1 } = {}): Promise<boolean> {
   if (!AudioContextConstructor) return false;
 
   try {
-    if (!cachedContext || cachedContext.state === "closed") {
-      cachedContext = new AudioContextConstructor();
+    if (!sharedContext || sharedContext.state === "closed") {
+      sharedContext = new AudioContextConstructor();
     }
-    const context = cachedContext;
+    const context = sharedContext;
     if (context.state === "suspended") await context.resume();
-
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
     const startedAt = context.currentTime;
 
-    oscillator.type = SEND_DING.type;
-    oscillator.frequency.setValueAtTime(SEND_DING.startFrequency, startedAt);
-    oscillator.frequency.exponentialRampToValueAtTime(SEND_DING.endFrequency, startedAt + 0.1);
-    gain.gain.setValueAtTime(0.0001, startedAt);
-    gain.gain.exponentialRampToValueAtTime(SEND_DING.volume * 0.28 * volumeScale, startedAt + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, startedAt + SEND_DING.duration);
+    for (const tone of ding.tones(volumeScale)) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const toneStart = startedAt + tone.start;
 
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(startedAt);
-    oscillator.stop(startedAt + SEND_DING.duration + 0.02);
+      oscillator.type = ding.oscillatorType;
+      oscillator.frequency.setValueAtTime(tone.frequency, toneStart);
+      if (ding.glideTo) {
+        oscillator.frequency.exponentialRampToValueAtTime(
+          ding.glideTo.frequency,
+          toneStart + ding.glideTo.after,
+        );
+      }
+      gain.gain.setValueAtTime(0.0001, toneStart);
+      gain.gain.exponentialRampToValueAtTime(tone.volume, toneStart + tone.attack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + tone.duration);
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start(toneStart);
+      oscillator.stop(toneStart + tone.duration + 0.02);
+    }
     return true;
   } catch {
     return false;
   }
 }
 
-export function __resetSendDingForTests(): void {
-  cachedUrl = null;
-  cachedAudio = null;
-  cachedContext = null;
+/**
+ * Plays the send ding. Callers should invoke this from a user gesture (the send
+ * action) so autoplay policies allow it. Resolves false only when the browser
+ * offers no usable audio path; blocked element playback falls back to Web Audio.
+ */
+export function playSendDing({ volumeScale = 1 } = {}): Promise<boolean> {
+  return play(sendDing, volumeScale);
+}
+
+/**
+ * Plays the softer two-tone chime used when a session goes idle. This fires
+ * outside a user gesture, so it relies on audio already being unlocked — which
+ * the send ding does for any session the user has typed into.
+ */
+export function playIdleCompletionDing({ volumeScale = 0.9 } = {}): Promise<boolean> {
+  return play(idleCompletionDing, volumeScale);
+}
+
+export function __resetSoundsForTests(): void {
+  audioCache.delete(sendDing);
+  audioCache.delete(idleCompletionDing);
+  sharedContext = null;
 }

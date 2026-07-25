@@ -1,6 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { __resetSendDingForTests, createSendDingWavUrl, playSendDing } from "./sound";
+import {
+  __resetSoundsForTests,
+  createIdleCompletionDingWavUrl,
+  createSendDingWavUrl,
+  playSendDing,
+} from "./sound";
+
+function peakAmplitude(view: DataView): number {
+  let peak = 0;
+  for (let offset = 44; offset + 1 < view.byteLength; offset += 2) {
+    peak = Math.max(peak, Math.abs(view.getInt16(offset, true)));
+  }
+  return peak / 0x7fff;
+}
 
 function decodeWav(dataUrl: string): DataView {
   const base64 = dataUrl.replace("data:audio/wav;base64,", "");
@@ -19,7 +32,7 @@ function readAscii(view: DataView, offset: number, length: number): string {
 }
 
 afterEach(() => {
-  __resetSendDingForTests();
+  __resetSoundsForTests();
   vi.unstubAllGlobals();
 });
 
@@ -39,6 +52,11 @@ describe("createSendDingWavUrl", () => {
     expect(view.getUint16(34, true)).toBe(16);
     expect(view.getUint32(40, true)).toBe(dataBytes);
     expect(view.byteLength).toBe(44 + dataBytes);
+  });
+
+  it("renders an audible tone rather than silence", () => {
+    expect(peakAmplitude(decodeWav(createSendDingWavUrl()))).toBeGreaterThan(0.1);
+    expect(peakAmplitude(decodeWav(createIdleCompletionDingWavUrl()))).toBeGreaterThan(0.05);
   });
 
   it("starts and ends near silence so the tone does not click", () => {

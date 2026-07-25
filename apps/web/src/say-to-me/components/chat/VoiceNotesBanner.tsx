@@ -3,6 +3,10 @@ import { CheckIcon, PlayIcon, SquareIcon, Volume2Icon } from "lucide-react";
 
 import { cn } from "~/lib/utils";
 import { Button } from "../../../components/ui/button";
+import { enqueueSound } from "../../audioQueue";
+
+/** Upper bound on how long a single spoken note may hold the audio queue. */
+const SPEECH_TIMEOUT_MS = 120_000;
 
 // Prefer the Edge neural voice used by t3-vo, then fall back to Google's
 // English voice when the preferred voice is not installed.
@@ -281,7 +285,21 @@ export function VoiceNotesBanner({ environmentId, threadId }: VoiceNotesBannerPr
       };
       utteranceRef.current = utterance;
       setPlayingId(note.id);
-      window.speechSynthesis.speak(utterance);
+      // Queued so a notification ding waits for the note instead of talking over it.
+      void enqueueSound(
+        () =>
+          new Promise<void>((resolve) => {
+            // Stop() may have run while this note waited its turn in the queue.
+            if (playRequest !== playRequestRef.current) {
+              resolve();
+              return;
+            }
+            utterance.addEventListener("end", () => resolve(), { once: true });
+            utterance.addEventListener("error", () => resolve(), { once: true });
+            window.speechSynthesis.speak(utterance);
+          }),
+        { timeoutMs: SPEECH_TIMEOUT_MS },
+      );
     });
   };
 
