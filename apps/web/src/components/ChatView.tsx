@@ -219,6 +219,7 @@ import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
+import { VoiceNotesBanner } from "../say-to-me/components/chat/VoiceNotesBanner";
 import { ChatHeader } from "./chat/ChatHeader";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "./chat/PanelLayoutControls";
 import { type ExpandedImagePreview } from "./chat/ExpandedImagePreview";
@@ -5672,6 +5673,13 @@ function ChatViewContent(props: ChatViewProps) {
             </div>
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
+              {!isDraftHeroState ? (
+                <VoiceNotesBanner
+                  key={`${activeThread.environmentId}:${activeThread.id}`}
+                  environmentId={activeThread.environmentId}
+                  threadId={activeThread.id}
+                />
+              ) : null}
               {/* Messages — LegendList handles virtualization and scrolling internally */}
               <MessagesTimeline
                 key={activeThread.id}

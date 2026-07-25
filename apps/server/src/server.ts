@@ -6,6 +6,12 @@ import * as HttpApiBuilder from "effect/unstable/httpapi/HttpApiBuilder";
 
 import * as ServerConfig from "./config.ts";
 import {
+  voiceNoteCreateProxyRouteLayer,
+  voiceNoteStatusProxyRouteLayer,
+  voiceNotesEventsProxyRouteLayer,
+  voiceNotesProxyRouteLayer,
+} from "./say-to-me/voiceNotesProxy.ts";
+import {
   otlpTracesProxyRouteLayer,
   assetRouteLayer,
   serverEnvironmentHttpApiLayer,
@@ -359,6 +365,10 @@ export const makeRoutesLayer = Layer.mergeAll(
       Layer.provide(environmentAuthenticatedAuthLayer),
     ),
     otlpTracesProxyRouteLayer,
+    voiceNotesEventsProxyRouteLayer,
+    voiceNotesProxyRouteLayer,
+    voiceNoteCreateProxyRouteLayer,
+    voiceNoteStatusProxyRouteLayer,
     assetRouteLayer,
     staticAndDevRouteLayer,
     websocketRpcRouteLayer,
