@@ -40,7 +40,9 @@ type NativeSpaceSession = {
 type NativeSpace = {
   readonly id?: unknown;
   readonly name?: unknown;
+  readonly parentId?: unknown;
   readonly archived?: unknown;
+  readonly sortOrder?: unknown;
   readonly sessions?: unknown;
 };
 
@@ -56,7 +58,9 @@ type MappedSpaceSession = {
 type MappedSpace = {
   readonly id: string;
   readonly name: string;
+  readonly parentId: string | null;
   readonly archived: boolean;
+  readonly sortOrder: number;
   readonly sessions: ReadonlyArray<MappedSpaceSession>;
 };
 
@@ -121,7 +125,12 @@ function mapSpacesFromNative(body: unknown): MappedSpace[] {
       {
         id: spaceId,
         name: space.name,
+        parentId: typeof space.parentId === "string" ? space.parentId : null,
         archived: Boolean(space.archived),
+        sortOrder:
+          typeof space.sortOrder === "number" && Number.isFinite(space.sortOrder)
+            ? space.sortOrder
+            : 0,
         sessions: mappedSessions,
       },
     ];

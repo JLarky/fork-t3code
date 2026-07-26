@@ -25,6 +25,18 @@ Current integration points in existing T3 files:
 - `apps/web/src/components/CommandPalette.tsx` adds one "Open Spaces" action that
   calls `openSpaces()`.
 
+## Long-term Direction
+
+The current same-origin HTTP proxy is intentionally a small, local integration
+that keeps this fork easy to rebase. Keep that approach for now.
+
+Longer term, the integration should adopt more of T3 Code's native primitives so
+it behaves like a first-class feature across desktop, remote, relay, and
+multi-environment clients. In particular, voice-note streaming and mutations
+should use T3's authenticated, environment-aware client runtime and transport
+instead of raw browser `fetch` and `EventSource` calls. That migration is a
+separate project; it is not part of the current integration.
+
 ## Voice Flow
 
 The web banner talks only to same-origin T3 routes. The server proxies those
