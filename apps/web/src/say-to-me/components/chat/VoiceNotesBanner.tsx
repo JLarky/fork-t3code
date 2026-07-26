@@ -68,6 +68,28 @@ type VoiceNoteStatus = "queued" | "speaking" | "played" | "stopped";
 
 type SessionState = "loading" | "ready" | "missing" | "unavailable";
 
+const SAY_TO_ME_SQL_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
+
+/** Say To Me returns SQLite UTC timestamps without an offset. Make the UTC contract explicit. */
+export function normalizeSayToMeTimestamp(timestamp: string): string {
+  const trimmed = timestamp.trim();
+  return SAY_TO_ME_SQL_TIMESTAMP_RE.test(trimmed) ? `${trimmed.replace(" ", "T")}Z` : trimmed;
+}
+
+/** Render voice-note timestamps in the browser's local timezone. */
+export function formatSayToMeTimestamp(timestamp: string): string {
+  const date = new Date(normalizeSayToMeTimestamp(timestamp));
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
 export function imageAttachmentThumbnail(
   attachment: Pick<SayToMeAttachment, "mimeType" | "thumbnailDataUrl">,
 ): string | null {
@@ -518,7 +540,7 @@ export function VoiceNotesBanner({
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs short:gap-x-1.5 short:gap-y-0.5 short:text-[10px]">
                           <span className="font-mono">#{note.id}</span>
                           <span className="font-medium text-foreground">{note.author}</span>
-                          <span>{note.time}</span>
+                          <span>{formatSayToMeTimestamp(note.time)}</span>
                           <span
                             className={cn(
                               "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide short:text-[9px]",

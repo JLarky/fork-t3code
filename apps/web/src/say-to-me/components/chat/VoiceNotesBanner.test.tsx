@@ -5,8 +5,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   claimQueuedNotesForStopAll,
   claimVoiceNoteForAutoplay,
+  formatSayToMeTimestamp,
   imageAttachmentThumbnail,
   mostRecentVoiceNote,
+  normalizeSayToMeTimestamp,
   SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
   sayToMeBannerSectionClass,
   sayToMeTitleUrl,
@@ -25,6 +27,25 @@ afterEach(() => {
 });
 
 describe("Say To Me section", () => {
+  it("treats Say To Me SQLite timestamps as UTC", () => {
+    expect(normalizeSayToMeTimestamp("2026-07-26 19:17:58")).toBe("2026-07-26T19:17:58Z");
+    expect(new Date(normalizeSayToMeTimestamp("2026-07-26 19:17:58")).toISOString()).toBe(
+      "2026-07-26T19:17:58.000Z",
+    );
+  });
+
+  it("formats voice-note timestamps with the browser's local timezone", () => {
+    const expected = new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(new Date("2026-07-26T19:17:58Z"));
+    expect(formatSayToMeTimestamp("2026-07-26 19:17:58")).toBe(expected);
+  });
+
   it("builds a per-thread Say To Me session id from environment and thread ids", () => {
     expect(
       voiceNotesSessionId(
