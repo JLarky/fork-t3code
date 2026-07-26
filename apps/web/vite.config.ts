@@ -145,6 +145,8 @@ export default defineConfig(() => {
       host,
       port,
       strictPort: true,
+      // Tailscale / phone access: Vite blocks unknown Host headers by default.
+      allowedHosts: ["lima-default.tail052173.ts.net", ".ts.net"],
       ...(devProxyTarget
         ? {
             proxy: {

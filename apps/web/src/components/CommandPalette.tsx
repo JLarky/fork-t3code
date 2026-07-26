@@ -22,6 +22,7 @@ import {
   ArrowDownIcon,
   ArrowLeftIcon,
   ArrowUpIcon,
+  BoxesIcon,
   CornerLeftUpIcon,
   FolderIcon,
   FolderPlusIcon,
@@ -75,6 +76,7 @@ import {
   resolveProjectPathForDispatch,
 } from "../lib/projectPaths";
 import { onOpenCommandPalette } from "../commandPaletteBus";
+import { openSpaces } from "../say-to-me/spacesBus";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { getLatestThreadForProject, sortThreads } from "../lib/threadSort";
 import { cn, isMacPlatform, isWindowsPlatform, newProjectId } from "../lib/utils";
@@ -1229,6 +1231,17 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  actionItems.push({
+    kind: "action",
+    value: "action:spaces",
+    searchTerms: ["spaces", "space", "say to me", "claim", "session", "thread", "group"],
+    title: "Open Spaces",
+    icon: <BoxesIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      openSpaces();
+    },
+  });
 
   actionItems.push({
     kind: "action",

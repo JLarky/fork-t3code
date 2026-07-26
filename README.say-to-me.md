@@ -8,7 +8,8 @@ tree so rebasing onto upstream remains straightforward.
 - Web implementation lives under `apps/web/src/say-to-me/`.
 - Server implementation lives under `apps/server/src/say-to-me/`.
 - Existing T3 files should contain only the smallest integration points needed
-  to mount the banner, register its routes, and play the notification sounds.
+  to mount the banner, register its routes, play the notification sounds, and
+  open the Spaces overlay.
 - Do not move general T3 utilities into this area or modify unrelated T3
   behavior for Say To Me features.
 
@@ -16,9 +17,13 @@ Current integration points in existing T3 files:
 
 - `apps/web/src/components/ChatView.tsx` mounts `<VoiceNotesBanner>` and calls
   `useIdleCompletionDing()`.
-- `apps/server/src/server.ts` registers the four voice-note route layers.
+- `apps/web/src/routes/__root.tsx` mounts `<SpacesOverlay>` when authenticated.
+- `apps/server/src/server.ts` registers the voice-note and T3-spaces proxy
+  route layers.
 - `apps/web/src/components/chat/ChatComposer.tsx` calls `playSendDing()` in
   `submitComposer`.
+- `apps/web/src/components/CommandPalette.tsx` adds one "Open Spaces" action that
+  calls `openSpaces()`.
 
 ## Voice Flow
 
@@ -101,6 +106,34 @@ token and skips rather than speaking late.
 
 The send ding is intentionally **not** queued. It is immediate feedback for a
 keypress, and delaying it behind a long spoken note would feel broken.
+
+## Spaces Tracer (Cmd/Ctrl+I)
+
+Spaces membership for T3 **sessions** (threads) lives in the **Say To Me** database
+(`t3_space_sessions`), not in T3's orchestration DB. That keeps rebases onto
+upstream T3 light: T3 only adds a thin proxy and a UI overlay.
+
+- Press **Cmd/Ctrl+I** (outside inputs) to open the Spaces overlay.
+- On touch devices there is no shortcut, so open the sidebar, tap **Search**, and
+  pick **Open Spaces**. Both entry points go through `say-to-me/spacesBus.ts`.
+- The overlay lists Say To Me spaces, shows claimed T3 threads, and lets you
+  claim an unclaimed thread into the selected space or release one.
+- Selected space header includes an underlined **open** link to
+  `https://say.localhost:1311/dashboard/:spaceId` (`target=_blank`).
+- Shortcut is hardcoded in `SpacesOverlay` for now so we do not touch shared
+  keybinding contracts.
+
+Same-origin proxy routes:
+
+- `GET /api/t3-spaces`
+- `POST /api/t3-spaces/:spaceId/sessions`
+- `DELETE /api/t3-spaces/sessions/:environmentId/:threadId`
+
+Upstream Say To Me routes are the same paths under `T3CODE_SAY_TO_ME_URL`
+(default `https://say.local:1355`). Membership stores `(environmentId,
+threadId)` references plus optional title/projectTitle labels — T3 remains
+authoritative for the thread records themselves. This mirrors Say To Me's
+native `claimSession` semantics.
 
 ## Rebase Workflow
 

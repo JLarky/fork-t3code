@@ -4,6 +4,7 @@ import { CheckIcon, PlayIcon, SquareIcon, Volume2Icon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Button } from "../../../components/ui/button";
 import { enqueueSound } from "../../audioQueue";
+import { sayToMeSessionUrl } from "../../sayToMeUi";
 
 /** Upper bound on how long a single spoken note may hold the audio queue. */
 const SPEECH_TIMEOUT_MS = 120_000;
@@ -14,7 +15,6 @@ const PREFERRED_SPEECH_VOICE_NAMES = [
   "Microsoft Emma Online (Natural) - English (United States)",
   "Google US English",
 ];
-const SAY_TO_ME_UI_URL = "https://say.localhost:1311";
 
 export function voiceNotesSessionId(environmentId: string, threadId: string): string {
   return `vo_t3_${environmentId}__${threadId}`;
@@ -329,7 +329,7 @@ export function VoiceNotesBanner({ environmentId, threadId }: VoiceNotesBannerPr
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-medium text-sm">Say To Me</h2>
               <a
-                href={`${SAY_TO_ME_UI_URL}/ses/${encodeURIComponent(sessionId)}`}
+                href={sayToMeSessionUrl(sessionId)}
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-full bg-info/10 px-2 py-0.5 font-medium text-[10px] text-info uppercase tracking-wide"

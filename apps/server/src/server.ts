@@ -12,6 +12,11 @@ import {
   voiceNotesProxyRouteLayer,
 } from "./say-to-me/voiceNotesProxy.ts";
 import {
+  t3SpacesClaimProxyRouteLayer,
+  t3SpacesListProxyRouteLayer,
+  t3SpacesReleaseProxyRouteLayer,
+} from "./say-to-me/spacesProxy.ts";
+import {
   otlpTracesProxyRouteLayer,
   assetRouteLayer,
   serverEnvironmentHttpApiLayer,
@@ -369,6 +374,9 @@ export const makeRoutesLayer = Layer.mergeAll(
     voiceNotesProxyRouteLayer,
     voiceNoteCreateProxyRouteLayer,
     voiceNoteStatusProxyRouteLayer,
+    t3SpacesListProxyRouteLayer,
+    t3SpacesClaimProxyRouteLayer,
+    t3SpacesReleaseProxyRouteLayer,
     assetRouteLayer,
     staticAndDevRouteLayer,
     websocketRpcRouteLayer,

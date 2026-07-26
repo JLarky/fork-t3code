@@ -20,6 +20,7 @@ import { SshPasswordPromptDialog } from "../components/desktop/SshPasswordPrompt
 import { ProviderUpdateLaunchNotification } from "../components/ProviderUpdateLaunchNotification";
 import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
 import { Button } from "../components/ui/button";
+import { SpacesOverlay } from "../say-to-me/SpacesOverlay";
 import {
   AnchoredToastProvider,
   stackedThreadToast,
@@ -136,6 +137,7 @@ function RootRouteView() {
         <HostedStaticEnvironmentBootstrap />
         {primaryEnvironmentAuthenticated ? <EventRouter /> : null}
         {primaryEnvironmentAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
+        {primaryEnvironmentAuthenticated ? <SpacesOverlay /> : null}
         {appShell}
       </AnchoredToastProvider>
     </ToastProvider>
