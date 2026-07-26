@@ -8,3 +8,7 @@ export function sayToMeSpaceDashboardUrl(spaceId: string): string {
 export function sayToMeSessionUrl(sessionId: string): string {
   return `${SAY_TO_ME_UI_URL}/ses/${encodeURIComponent(sessionId)}`;
 }
+
+export function sayToMeAttachmentUrl(attachmentId: number): string {
+  return `${SAY_TO_ME_UI_URL}/api/message-attachments/${encodeURIComponent(String(attachmentId))}`;
+}

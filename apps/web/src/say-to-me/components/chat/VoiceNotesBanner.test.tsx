@@ -3,9 +3,11 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   claimVoiceNoteForAutoplay,
+  imageAttachmentThumbnail,
   VoiceNotesBanner,
   voiceNotesSessionId,
 } from "./VoiceNotesBanner";
+import { sayToMeAttachmentUrl } from "../../sayToMeUi";
 
 describe("Say To Me section", () => {
   it("builds a per-thread Say To Me session id from environment and thread ids", () => {
@@ -44,5 +46,26 @@ describe("Say To Me section", () => {
     expect(claimVoiceNoteForAutoplay(note, claimedIds)).toBe(true);
     expect(claimVoiceNoteForAutoplay(note, claimedIds)).toBe(false);
     expect(claimedIds).toEqual(new Set(["32479"]));
+  });
+
+  it("returns thumbnails for image attachments", () => {
+    expect(
+      imageAttachmentThumbnail({
+        mimeType: "image/png",
+        thumbnailDataUrl: "data:image/webp;base64,thumbnail",
+      }),
+    ).toBe("data:image/webp;base64,thumbnail");
+    expect(
+      imageAttachmentThumbnail({
+        mimeType: "audio/mpeg",
+        thumbnailDataUrl: "data:image/webp;base64,thumbnail",
+      }),
+    ).toBeNull();
+  });
+
+  it("builds Say To Me attachment links with the shared UI origin", () => {
+    expect(sayToMeAttachmentUrl(476)).toBe(
+      "https://say.localhost:1311/api/message-attachments/476",
+    );
   });
 });

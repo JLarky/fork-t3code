@@ -4,7 +4,7 @@ import { CheckIcon, PlayIcon, SquareIcon, Volume2Icon } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Button } from "../../../components/ui/button";
 import { enqueueSound } from "../../audioQueue";
-import { sayToMeSessionUrl } from "../../sayToMeUi";
+import { sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
 import { voiceNotesSessionId } from "../../voiceSessionId";
 
 export { voiceNotesSessionId };
@@ -29,6 +29,14 @@ type VoiceNote = {
   readonly time: string;
   readonly text: string;
   readonly status: string;
+  readonly attachments: ReadonlyArray<SayToMeAttachment>;
+};
+
+type SayToMeAttachment = {
+  readonly id: number;
+  readonly mimeType: string;
+  readonly originalName: string;
+  readonly thumbnailDataUrl?: string;
 };
 
 type SayToMeMessage = {
@@ -37,6 +45,7 @@ type SayToMeMessage = {
   readonly text: string;
   readonly status: string;
   readonly createdAt: string;
+  readonly attachments?: ReadonlyArray<SayToMeAttachment>;
 };
 
 type SayToMeMessagesPayload = {
@@ -46,6 +55,14 @@ type SayToMeMessagesPayload = {
 type VoiceNoteStatus = "queued" | "speaking" | "played" | "stopped";
 
 type SessionState = "loading" | "ready" | "missing" | "unavailable";
+
+export function imageAttachmentThumbnail(
+  attachment: Pick<SayToMeAttachment, "mimeType" | "thumbnailDataUrl">,
+): string | null {
+  return attachment.mimeType.startsWith("image/") && attachment.thumbnailDataUrl
+    ? attachment.thumbnailDataUrl
+    : null;
+}
 
 function listSpeechVoices(): SpeechSynthesisVoice[] {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return [];
@@ -160,6 +177,7 @@ export function VoiceNotesBanner({ environmentId, threadId }: VoiceNotesBannerPr
             time: message.createdAt,
             text: message.text,
             status: message.status,
+            attachments: message.attachments ?? [],
           })),
       );
     };
@@ -400,6 +418,28 @@ export function VoiceNotesBanner({ environmentId, threadId }: VoiceNotesBannerPr
                         </span>
                       </div>
                       <p className="mt-1 text-sm leading-5">{note.text}</p>
+                      {note.attachments.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {note.attachments.map((attachment) => {
+                            const thumbnail = imageAttachmentThumbnail(attachment);
+                            return thumbnail ? (
+                              <a
+                                key={attachment.id}
+                                href={sayToMeAttachmentUrl(attachment.id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open ${attachment.originalName}`}
+                              >
+                                <img
+                                  src={thumbnail}
+                                  alt={attachment.originalName}
+                                  className="max-h-32 max-w-48 rounded-lg border border-border/60 object-contain"
+                                />
+                              </a>
+                            ) : null;
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <Button
