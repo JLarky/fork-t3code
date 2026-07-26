@@ -132,9 +132,14 @@ export function claimVoiceNoteForAutoplay(
 type VoiceNotesBannerProps = {
   readonly environmentId: string;
   readonly threadId: string;
+  readonly onInsertUsagePrompt: () => void;
 };
 
-export function VoiceNotesBanner({ environmentId, threadId }: VoiceNotesBannerProps) {
+export function VoiceNotesBanner({
+  environmentId,
+  threadId,
+  onInsertUsagePrompt,
+}: VoiceNotesBannerProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
   const notesUrl = voiceNotesUrl(sessionId);
   const [notes, setNotes] = useState<ReadonlyArray<VoiceNote>>([]);
@@ -384,9 +389,12 @@ export function VoiceNotesBanner({ environmentId, threadId }: VoiceNotesBannerPr
               Loading voice notes...
             </p>
           ) : notes.length === 0 ? (
-            <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm">
-              No voice notes yet.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5">
+              <p className="text-muted-foreground text-sm">No voice notes yet.</p>
+              <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
+                Tell your agent how to use Say To Me
+              </Button>
+            </div>
           ) : (
             notes.map((note) => {
               const isPlaying = playingId === note.id;

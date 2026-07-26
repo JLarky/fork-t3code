@@ -220,6 +220,7 @@ import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
 import { VoiceNotesBanner } from "../say-to-me/components/chat/VoiceNotesBanner";
+import { voiceNotesSessionId } from "../say-to-me/voiceSessionId";
 import { useIdleCompletionDing } from "../say-to-me/useIdleCompletionDing";
 import { ChatHeader } from "./chat/ChatHeader";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "./chat/PanelLayoutControls";
@@ -2499,6 +2500,21 @@ function ChatViewContent(props: ChatViewProps) {
       focusComposer();
     });
   }, [focusComposer]);
+  const insertSayToMeUsagePrompt = useCallback(() => {
+    if (!activeThread) return;
+    const sessionId = voiceNotesSessionId(environmentId, activeThread.id);
+    setComposerDraftPrompt(
+      composerDraftTarget,
+      `you have to reply to my messages with voice (cli \`say-to-me usage\` to learn how/why) and your session id is ${sessionId}`,
+    );
+    scheduleComposerFocus();
+  }, [
+    activeThread,
+    composerDraftTarget,
+    environmentId,
+    scheduleComposerFocus,
+    setComposerDraftPrompt,
+  ]);
   const addTerminalContextToDraft = useCallback(
     (selection: TerminalContextSelection) => {
       composerRef.current?.addTerminalContext(selection);
@@ -5680,6 +5696,7 @@ function ChatViewContent(props: ChatViewProps) {
                   key={`${activeThread.environmentId}:${activeThread.id}`}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
+                  onInsertUsagePrompt={insertSayToMeUsagePrompt}
                 />
               ) : null}
               {/* Messages — LegendList handles virtualization and scrolling internally */}
