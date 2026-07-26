@@ -78,6 +78,7 @@ export function applyThreadDetailEvent(
           snoozedAt: null,
           deletedAt: null,
           messages: [],
+          queuedMessages: [],
           proposedPlans: [],
           activities: [],
           checkpoints: [],
@@ -225,6 +226,37 @@ export function applyThreadDetailEvent(
     }
 
     // ── Messages ────────────────────────────────────────────────────
+    case "thread.message-queued": {
+      const queuedMessages = thread.queuedMessages ?? [];
+      const existing = queuedMessages.some((entry) => entry.id === event.payload.message.id);
+      return {
+        kind: "updated",
+        thread: {
+          ...thread,
+          queuedMessages: existing
+            ? Arr.map(queuedMessages, (entry) =>
+                entry.id === event.payload.message.id ? event.payload.message : entry,
+              )
+            : Arr.append(queuedMessages, event.payload.message),
+          updatedAt: event.occurredAt,
+        },
+      };
+    }
+
+    case "thread.queued-message-cancelled":
+    case "thread.queued-message-released":
+      return {
+        kind: "updated",
+        thread: {
+          ...thread,
+          queuedMessages: Arr.filter(
+            thread.queuedMessages ?? [],
+            (entry) => entry.id !== event.payload.messageId,
+          ),
+          updatedAt: event.occurredAt,
+        },
+      };
+
     case "thread.message-sent": {
       const message: OrchestrationMessage = {
         id: event.payload.messageId,

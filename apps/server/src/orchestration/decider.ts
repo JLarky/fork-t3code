@@ -142,6 +142,18 @@ function threadHasQueuedTurnStart(
   );
 }
 
+function threadCanAcceptQueuedDelivery(
+  thread: OrchestrationReadModel["threads"][number],
+  occurredAt: string,
+): boolean {
+  return (
+    thread.session?.status !== "starting" &&
+    thread.session?.status !== "running" &&
+    !hasOpenBlockingRequest(thread) &&
+    !threadHasQueuedTurnStart(thread, occurredAt)
+  );
+}
+
 function withEventBase(
   input: Pick<OrchestrationCommand, "commandId"> & {
     readonly aggregateKind: OrchestrationEvent["aggregateKind"];
@@ -740,6 +752,37 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           detail: `Proposed plan '${sourceProposedPlan?.planId}' belongs to thread '${sourceThread.id}' in a different project.`,
         });
       }
+      const hasQueuedMessages = (targetThread.queuedMessages?.length ?? 0) > 0;
+      if (
+        command.deliveryMode === "when-idle" &&
+        (hasQueuedMessages || !threadCanAcceptQueuedDelivery(targetThread, command.createdAt))
+      ) {
+        return {
+          ...(yield* withEventBase({
+            aggregateKind: "thread",
+            aggregateId: command.threadId,
+            occurredAt: command.createdAt,
+            commandId: command.commandId,
+          })),
+          type: "thread.message-queued",
+          payload: {
+            threadId: command.threadId,
+            message: {
+              id: command.message.messageId,
+              text: command.message.text,
+              attachments: command.message.attachments,
+              ...(command.modelSelection !== undefined
+                ? { modelSelection: command.modelSelection }
+                : {}),
+              ...(command.titleSeed !== undefined ? { titleSeed: command.titleSeed } : {}),
+              runtimeMode: targetThread.runtimeMode,
+              interactionMode: targetThread.interactionMode,
+              ...(sourceProposedPlan !== undefined ? { sourceProposedPlan } : {}),
+              createdAt: command.createdAt,
+            },
+          },
+        };
+      }
       const userMessageEvent: Omit<OrchestrationEvent, "sequence"> = {
         ...(yield* withEventBase({
           aggregateKind: "thread",
@@ -821,6 +864,112 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         });
       }
       return [...lifecycleResetEvents, userMessageEvent, turnStartRequestedEvent];
+    }
+
+    case "thread.queued-message.cancel": {
+      const thread = yield* requireThread({
+        readModel,
+        command,
+        threadId: command.threadId,
+      });
+      const queuedMessage = (thread.queuedMessages ?? []).find(
+        (entry) => entry.id === command.messageId,
+      );
+      if (!queuedMessage) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Queued message '${command.messageId}' does not exist on thread '${command.threadId}'.`,
+        });
+      }
+      return {
+        ...(yield* withEventBase({
+          aggregateKind: "thread",
+          aggregateId: command.threadId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "thread.queued-message-cancelled",
+        payload: {
+          threadId: command.threadId,
+          messageId: command.messageId,
+          cancelledAt: command.createdAt,
+        },
+      };
+    }
+
+    case "thread.queued-message.force":
+    case "thread.queued-message.release": {
+      const thread = yield* requireThread({
+        readModel,
+        command,
+        threadId: command.threadId,
+      });
+      const queuedMessages = thread.queuedMessages ?? [];
+      const queuedMessage = queuedMessages.find((entry) => entry.id === command.messageId);
+      if (!queuedMessage) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Queued message '${command.messageId}' does not exist on thread '${command.threadId}'.`,
+        });
+      }
+      if (
+        command.type === "thread.queued-message.release" &&
+        queuedMessages[0]?.id !== command.messageId
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Queued message '${command.messageId}' is not first in the queue for thread '${command.threadId}'.`,
+        });
+      }
+      if (
+        command.type === "thread.queued-message.release" &&
+        !threadCanAcceptQueuedDelivery(thread, command.createdAt)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: `Thread '${command.threadId}' is not idle.`,
+        });
+      }
+      const releaseEvent: Omit<OrchestrationEvent, "sequence"> = {
+        ...(yield* withEventBase({
+          aggregateKind: "thread",
+          aggregateId: command.threadId,
+          occurredAt: command.createdAt,
+          commandId: command.commandId,
+        })),
+        type: "thread.queued-message-released",
+        payload: {
+          threadId: command.threadId,
+          messageId: command.messageId,
+          releasedAt: command.createdAt,
+        },
+      };
+      const deliveryEvents = yield* decideOrchestrationCommand({
+        readModel,
+        command: {
+          type: "thread.turn.start",
+          commandId: command.commandId,
+          threadId: command.threadId,
+          message: {
+            messageId: queuedMessage.id,
+            role: "user",
+            text: queuedMessage.text,
+            attachments: queuedMessage.attachments,
+          },
+          ...(queuedMessage.modelSelection !== undefined
+            ? { modelSelection: queuedMessage.modelSelection }
+            : {}),
+          ...(queuedMessage.titleSeed !== undefined ? { titleSeed: queuedMessage.titleSeed } : {}),
+          runtimeMode: queuedMessage.runtimeMode,
+          interactionMode: queuedMessage.interactionMode,
+          ...(queuedMessage.sourceProposedPlan !== undefined
+            ? { sourceProposedPlan: queuedMessage.sourceProposedPlan }
+            : {}),
+          deliveryMode: "immediate",
+          createdAt: command.createdAt,
+        },
+      });
+      return [releaseEvent, ...(Array.isArray(deliveryEvents) ? deliveryEvents : [deliveryEvents])];
     }
 
     case "thread.turn.interrupt": {

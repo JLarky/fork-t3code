@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, ProviderInstanceId } from "@t3tools/contracts";
+import { MessageId, ProjectId, ThreadId, ProviderInstanceId } from "@t3tools/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -8,18 +8,55 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { SqlitePersistenceMemory } from "./Sqlite.ts";
 import { ProjectionProjectRepositoryLive } from "./ProjectionProjects.ts";
 import { ProjectionThreadRepositoryLive } from "./ProjectionThreads.ts";
+import { ProjectionThreadQueuedMessageRepositoryLive } from "./ProjectionThreadQueuedMessages.ts";
 import { ProjectionProjectRepository } from "../Services/ProjectionProjects.ts";
 import { ProjectionThreadRepository } from "../Services/ProjectionThreads.ts";
+import { ProjectionThreadQueuedMessageRepository } from "../Services/ProjectionThreadQueuedMessages.ts";
 
 const projectionRepositoriesLayer = it.layer(
   Layer.mergeAll(
     ProjectionProjectRepositoryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
     ProjectionThreadRepositoryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
+    ProjectionThreadQueuedMessageRepositoryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
     SqlitePersistenceMemory,
   ),
 );
 
 projectionRepositoriesLayer("Projection repositories", (it) => {
+  it.effect("round-trips queued messages in FIFO order", () =>
+    Effect.gen(function* () {
+      const queuedMessages = yield* ProjectionThreadQueuedMessageRepository;
+      const threadId = ThreadId.make("thread-queued-messages");
+      for (const [messageId, createdAt] of [
+        ["message-second", "2026-03-24T00:00:02.000Z"],
+        ["message-first", "2026-03-24T00:00:01.000Z"],
+      ] as const) {
+        yield* queuedMessages.upsert({
+          messageId: MessageId.make(messageId),
+          threadId,
+          text: messageId,
+          attachments: [],
+          modelSelection: null,
+          titleSeed: null,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          sourceProposedPlanThreadId: null,
+          sourceProposedPlanId: null,
+          createdAt,
+        });
+      }
+      const rows = yield* queuedMessages.listByThreadId({ threadId });
+      assert.deepStrictEqual(
+        rows.map((row) => row.messageId),
+        [MessageId.make("message-first"), MessageId.make("message-second")],
+      );
+      yield* queuedMessages.deleteByMessageId({
+        messageId: MessageId.make("message-first"),
+      });
+      assert.strictEqual((yield* queuedMessages.listByThreadId({ threadId })).length, 1);
+    }),
+  );
+
   it.effect("stores SQL NULL for missing project model options", () =>
     Effect.gen(function* () {
       const projects = yield* ProjectionProjectRepository;
@@ -96,6 +133,7 @@ projectionRepositoriesLayer("Projection repositories", (it) => {
         snoozedUntil: null,
         snoozedAt: null,
         latestUserMessageAt: null,
+        queuedMessageCount: 0,
         pendingApprovalCount: 0,
         pendingUserInputCount: 0,
         hasActionableProposedPlan: 0,
@@ -158,6 +196,7 @@ projectionRepositoriesLayer("Projection repositories", (it) => {
         snoozedUntil: "2026-03-26T09:00:00.000Z",
         snoozedAt: "2026-03-25T00:00:00.000Z",
         latestUserMessageAt: null,
+        queuedMessageCount: 0,
         pendingApprovalCount: 0,
         pendingUserInputCount: 0,
         hasActionableProposedPlan: 0,

@@ -2,6 +2,7 @@ import type { OrchestrationEvent, OrchestrationReadModel, ThreadId } from "@t3to
 import {
   OrchestrationCheckpointSummary,
   OrchestrationMessage,
+  OrchestrationQueuedMessage,
   OrchestrationSession,
   OrchestrationThread,
 } from "@t3tools/contracts";
@@ -20,6 +21,9 @@ import {
   ThreadDeletedPayload,
   ThreadInteractionModeSetPayload,
   ThreadMetaUpdatedPayload,
+  ThreadMessageQueuedPayload,
+  ThreadQueuedMessageCancelledPayload,
+  ThreadQueuedMessageReleasedPayload,
   ThreadProposedPlanUpsertedPayload,
   ThreadRuntimeModeSetPayload,
   ThreadSettledPayload,
@@ -296,6 +300,7 @@ export function projectEvent(
             snoozedAt: null,
             deletedAt: null,
             messages: [],
+            queuedMessages: [],
             activities: [],
             checkpoints: [],
             session: null,
@@ -492,6 +497,65 @@ export function projectEvent(
           ...nextBase,
           threads: updateThread(nextBase.threads, payload.threadId, {
             messages: cappedMessages,
+            updatedAt: event.occurredAt,
+          }),
+        };
+      });
+
+    case "thread.message-queued":
+      return Effect.gen(function* () {
+        const payload = yield* decodeForEvent(
+          ThreadMessageQueuedPayload,
+          event.payload,
+          event.type,
+          "payload",
+        );
+        const queuedMessage = yield* decodeForEvent(
+          OrchestrationQueuedMessage,
+          payload.message,
+          event.type,
+          "message",
+        );
+        const thread = nextBase.threads.find((entry) => entry.id === payload.threadId);
+        if (!thread) return nextBase;
+        const queuedMessages = thread.queuedMessages ?? [];
+        const existing = queuedMessages.some((entry) => entry.id === queuedMessage.id);
+        return {
+          ...nextBase,
+          threads: updateThread(nextBase.threads, payload.threadId, {
+            queuedMessages: existing
+              ? queuedMessages.map((entry) =>
+                  entry.id === queuedMessage.id ? queuedMessage : entry,
+                )
+              : [...queuedMessages, queuedMessage],
+            updatedAt: event.occurredAt,
+          }),
+        };
+      });
+
+    case "thread.queued-message-cancelled":
+    case "thread.queued-message-released":
+      return Effect.gen(function* () {
+        const payload =
+          event.type === "thread.queued-message-cancelled"
+            ? yield* decodeForEvent(
+                ThreadQueuedMessageCancelledPayload,
+                event.payload,
+                event.type,
+                "payload",
+              )
+            : yield* decodeForEvent(
+                ThreadQueuedMessageReleasedPayload,
+                event.payload,
+                event.type,
+                "payload",
+              );
+        return {
+          ...nextBase,
+          threads: updateThread(nextBase.threads, payload.threadId, {
+            queuedMessages: (
+              nextBase.threads.find((entry) => entry.id === payload.threadId)?.queuedMessages ?? []
+            ).filter((entry) => entry.id !== payload.messageId),
             updatedAt: event.occurredAt,
           }),
         };

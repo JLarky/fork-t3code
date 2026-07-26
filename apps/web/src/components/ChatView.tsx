@@ -1153,6 +1153,14 @@ function ChatViewContent(props: ChatViewProps) {
     reportFailure: false,
   });
   const startThreadTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const cancelQueuedMessage = useAtomCommand(
+    threadEnvironment.cancelQueuedMessage,
+    "cancel queued message",
+  );
+  const forceQueuedMessage = useAtomCommand(
+    threadEnvironment.forceQueuedMessage,
+    "force queued message",
+  );
   const interruptThreadTurn = useAtomCommand(threadEnvironment.interruptTurn, {
     reportFailure: false,
   });
@@ -2255,12 +2263,20 @@ function ChatViewContent(props: ChatViewProps) {
       return serverMessagesWithPreviewHandoff;
     }
     const serverIds = new Set(serverMessagesWithPreviewHandoff.map((message) => message.id));
+    for (const queuedMessage of activeThread?.queuedMessages ?? []) {
+      serverIds.add(queuedMessage.id);
+    }
     const pendingMessages = optimisticUserMessages.filter((message) => !serverIds.has(message.id));
     if (pendingMessages.length === 0) {
       return serverMessagesWithPreviewHandoff;
     }
     return [...serverMessagesWithPreviewHandoff, ...pendingMessages];
-  }, [attachmentPreviewHandoffByMessageId, displayServerMessages, optimisticUserMessages]);
+  }, [
+    activeThread?.queuedMessages,
+    attachmentPreviewHandoffByMessageId,
+    displayServerMessages,
+    optimisticUserMessages,
+  ]);
   const timelineEntries = useMemo(
     () =>
       deriveTimelineEntries(timelineMessages, activeThread?.proposedPlans ?? [], workLogEntries),
@@ -3770,10 +3786,10 @@ function ChatViewContent(props: ChatViewProps) {
 
   useEffect(() => {
     if (!activeThread?.id) return;
-    if (activeThread.messages.length === 0) {
-      return;
-    }
     const serverIds = new Set(activeThread.messages.map((message) => message.id));
+    for (const queuedMessage of activeThread.queuedMessages ?? []) {
+      serverIds.add(queuedMessage.id);
+    }
     const removedMessages = optimisticUserMessages.filter((message) => serverIds.has(message.id));
     if (removedMessages.length === 0) {
       return;
@@ -3794,7 +3810,13 @@ function ChatViewContent(props: ChatViewProps) {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [activeThread?.id, activeThread?.messages, handoffAttachmentPreviews, optimisticUserMessages]);
+  }, [
+    activeThread?.id,
+    activeThread?.messages,
+    activeThread?.queuedMessages,
+    handoffAttachmentPreviews,
+    optimisticUserMessages,
+  ]);
 
   useEffect(() => {
     setOptimisticUserMessages((existing) => {
@@ -4453,7 +4475,7 @@ function ChatViewContent(props: ChatViewProps) {
     ],
   );
 
-  const onSend = async (e?: { preventDefault: () => void }) => {
+  const onSend = async (e?: { preventDefault: () => void }, options?: { force?: boolean }) => {
     e?.preventDefault();
     if (
       !activeThread ||
@@ -4736,6 +4758,9 @@ function ChatViewContent(props: ChatViewProps) {
     }
 
     let turnStartSucceeded = false;
+    const mayBeQueued =
+      options?.force !== true &&
+      (phase === "running" || (activeThread.queuedMessages?.length ?? 0) > 0);
     if (failure === null && turnAttachmentsResult._tag === "Success") {
       const bootstrap =
         isLocalDraftThread || baseBranchForWorktree
@@ -4782,6 +4807,7 @@ function ChatViewContent(props: ChatViewProps) {
           titleSeed: title,
           runtimeMode,
           interactionMode,
+          deliveryMode: options?.force ? "immediate" : "when-idle",
           ...(bootstrap ? { bootstrap } : {}),
           createdAt: messageCreatedAt,
         },
@@ -4790,6 +4816,13 @@ function ChatViewContent(props: ChatViewProps) {
         failure = startResult;
       } else {
         turnStartSucceeded = true;
+        // A when-idle command can be acknowledged by the server as a queued
+        // message without changing the turn/session timestamps used by the
+        // normal dispatch acknowledgement heuristic. Release the local send
+        // lock immediately so additional messages can be queued FIFO.
+        if (mayBeQueued) {
+          resetLocalDispatch();
+        }
       }
     }
 
@@ -5807,6 +5840,57 @@ function ChatViewContent(props: ChatViewProps) {
                         showComposerContextStrip && "chat-composer-glass-shell-with-context",
                       )}
                     >
+                      {(activeThread?.queuedMessages?.length ?? 0) > 0 ? (
+                        <div className="mb-2 space-y-2 px-1" data-queued-messages>
+                          {activeThread?.queuedMessages?.map((queuedMessage) => (
+                            <div
+                              key={queuedMessage.id}
+                              className="bg-card/95 border-border/70 flex items-center gap-3 rounded-2xl border px-3 py-2 shadow-sm backdrop-blur"
+                            >
+                              <AlarmClockIcon className="text-muted-foreground size-4 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm">{queuedMessage.text}</p>
+                                <p className="text-muted-foreground text-xs">
+                                  Waiting for session to be idle
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="rounded-full"
+                                onClick={() =>
+                                  void cancelQueuedMessage({
+                                    environmentId,
+                                    input: {
+                                      threadId: activeThread.id,
+                                      messageId: queuedMessage.id,
+                                    },
+                                  })
+                                }
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="rounded-full"
+                                onClick={() =>
+                                  void forceQueuedMessage({
+                                    environmentId,
+                                    input: {
+                                      threadId: activeThread.id,
+                                      messageId: queuedMessage.id,
+                                    },
+                                  })
+                                }
+                              >
+                                Send now
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="chat-composer-glass-host relative z-10 w-full rounded-[22px]">
                         <div ref={attachDraftHeroComposerAnchorRef} className="relative z-10">
                           <ChatComposer

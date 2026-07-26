@@ -25,9 +25,13 @@ interface ComposerPrimaryActionsProps {
   isEnvironmentUnavailable: boolean;
   isPreparingWorktree: boolean;
   hasSendableContent: boolean;
+  isForceSendHeld?: boolean;
   preserveComposerFocusOnPointerDown?: boolean;
   onPreviousPendingQuestion: () => void;
   onInterrupt: () => void;
+  onQueuedSendPointerDown?: PointerEventHandler<HTMLButtonElement>;
+  onQueuedSendPointerUp?: PointerEventHandler<HTMLButtonElement>;
+  onQueuedSendPointerCancel?: PointerEventHandler<HTMLButtonElement>;
   onImplementPlanInNewThread: () => void;
 }
 
@@ -49,6 +53,9 @@ export const formatPendingPrimaryActionLabel = (input: {
   return input.questionIndex > 0 ? "Submit answers" : "Submit answer";
 };
 
+export const shouldForceQueuedSend = (input: { modifierHeld: boolean; heldForMs: number }) =>
+  input.modifierHeld || input.heldForMs >= 650;
+
 const preventPointerFocus: PointerEventHandler<HTMLElement> = (event) => {
   event.preventDefault();
 };
@@ -64,9 +71,13 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   isEnvironmentUnavailable,
   isPreparingWorktree,
   hasSendableContent,
+  isForceSendHeld = false,
   preserveComposerFocusOnPointerDown = false,
   onPreviousPendingQuestion,
   onInterrupt,
+  onQueuedSendPointerDown,
+  onQueuedSendPointerUp,
+  onQueuedSendPointerCancel,
   onImplementPlanInNewThread,
 }: ComposerPrimaryActionsProps) {
   const pointerFocusProps = preserveComposerFocusOnPointerDown
@@ -127,17 +138,33 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
 
   if (isRunning) {
     return (
-      <button
-        type="button"
-        className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-[0_1px_--theme(--color-white/16%)] transition-all duration-150 hover:bg-destructive hover:scale-105 active:inset-shadow-[0_1px_--theme(--color-black/8%)] active:shadow-none sm:h-8 sm:w-8"
-        {...pointerFocusProps}
-        onClick={onInterrupt}
-        aria-label="Stop generation"
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-          <rect x="2" y="2" width="8" height="8" rx="1.5" />
-        </svg>
-      </button>
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white shadow-xs shadow-destructive/24 inset-shadow-[0_1px_--theme(--color-white/16%)] transition-all duration-150 hover:bg-destructive hover:scale-105 active:inset-shadow-[0_1px_--theme(--color-black/8%)] active:shadow-none sm:h-8 sm:w-8"
+          {...pointerFocusProps}
+          onClick={onInterrupt}
+          aria-label="Stop generation"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+            <rect x="2" y="2" width="8" height="8" rx="1.5" />
+          </svg>
+        </button>
+        {hasSendableContent ? (
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-full px-4"
+            disabled={isSendBusy || isConnecting || isEnvironmentUnavailable}
+            onPointerDown={onQueuedSendPointerDown}
+            onPointerUp={onQueuedSendPointerUp}
+            onPointerCancel={onQueuedSendPointerCancel}
+            aria-label={isForceSendHeld ? "Send now" : "Queue message"}
+          >
+            {isForceSendHeld ? "Send" : "Queue"}
+          </Button>
+        ) : null}
+      </div>
     );
   }
 

@@ -75,7 +75,7 @@ import { ProviderModelPicker } from "./ProviderModelPicker";
 import { type ComposerCommandItem, ComposerCommandMenu } from "./ComposerCommandMenu";
 import { ComposerPendingApprovalActions } from "./ComposerPendingApprovalActions";
 import { CompactComposerControlsMenu } from "./CompactComposerControlsMenu";
-import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
+import { ComposerPrimaryActions, shouldForceQueuedSend } from "./ComposerPrimaryActions";
 import { ComposerPendingApprovalPanel } from "./ComposerPendingApprovalPanel";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
 import { ComposerPlanFollowUpBanner } from "./ComposerPlanFollowUpBanner";
@@ -419,9 +419,13 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
   isConnecting: boolean;
   isEnvironmentUnavailable: boolean;
   hasSendableContent: boolean;
+  isForceSendHeld: boolean;
   preserveComposerFocusOnPointerDown?: boolean;
   onPreviousPendingQuestion: () => void;
   onInterrupt: () => void;
+  onQueuedSendPointerDown: React.PointerEventHandler<HTMLButtonElement>;
+  onQueuedSendPointerUp: React.PointerEventHandler<HTMLButtonElement>;
+  onQueuedSendPointerCancel: React.PointerEventHandler<HTMLButtonElement>;
   onImplementPlanInNewThread: () => void;
 }) {
   return (
@@ -446,9 +450,13 @@ const ComposerFooterPrimaryActions = memo(function ComposerFooterPrimaryActions(
         isEnvironmentUnavailable={props.isEnvironmentUnavailable}
         isPreparingWorktree={props.isPreparingWorktree}
         hasSendableContent={props.hasSendableContent}
+        isForceSendHeld={props.isForceSendHeld}
         preserveComposerFocusOnPointerDown={props.preserveComposerFocusOnPointerDown ?? false}
         onPreviousPendingQuestion={props.onPreviousPendingQuestion}
         onInterrupt={props.onInterrupt}
+        onQueuedSendPointerDown={props.onQueuedSendPointerDown}
+        onQueuedSendPointerUp={props.onQueuedSendPointerUp}
+        onQueuedSendPointerCancel={props.onQueuedSendPointerCancel}
         onImplementPlanInNewThread={props.onImplementPlanInNewThread}
       />
     </>
@@ -581,7 +589,7 @@ export interface ChatComposerProps {
   composerRef: React.RefObject<ChatComposerHandle | null>;
 
   // Callbacks
-  onSend: (e?: { preventDefault: () => void }) => void;
+  onSend: (e?: { preventDefault: () => void }, options?: { force?: boolean }) => void;
   onInterrupt: () => void;
   onImplementPlanInNewThread: () => void;
   onRespondToApproval: (
@@ -1787,20 +1795,80 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     showPlanFollowUpPrompt,
   ]);
 
+  const [isForceSendHeld, setIsForceSendHeld] = useState(false);
+  const forceSendPointerStartedAtRef = useRef<number | null>(null);
+  const forceSendLongPressTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const updateModifierState = (event: KeyboardEvent) => {
+      if (phase !== "running") return;
+      setIsForceSendHeld(event.metaKey || event.ctrlKey);
+    };
+    const clearModifierState = () => setIsForceSendHeld(false);
+    window.addEventListener("keydown", updateModifierState);
+    window.addEventListener("keyup", updateModifierState);
+    window.addEventListener("blur", clearModifierState);
+    return () => {
+      window.removeEventListener("keydown", updateModifierState);
+      window.removeEventListener("keyup", updateModifierState);
+      window.removeEventListener("blur", clearModifierState);
+    };
+  }, [phase]);
+
   const submitComposer = useCallback(
-    (event?: { preventDefault: () => void }) => {
+    (event?: { preventDefault: () => void }, options?: { force?: boolean }) => {
       if (noProviderAvailable) {
         event?.preventDefault();
         return;
       }
       void playSendDing();
-      onSend(event);
+      onSend(event, options);
       if (shouldBlurMobileComposerOnSubmit()) {
         blurMobileComposerAfterSend();
       }
     },
     [blurMobileComposerAfterSend, noProviderAvailable, onSend, shouldBlurMobileComposerOnSubmit],
   );
+
+  const onQueuedSendPointerDown = useCallback<React.PointerEventHandler<HTMLButtonElement>>(
+    (event) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      forceSendPointerStartedAtRef.current = Date.now();
+      forceSendLongPressTimerRef.current = window.setTimeout(() => {
+        forceSendLongPressTimerRef.current = null;
+        setIsForceSendHeld(true);
+      }, 650);
+    },
+    [],
+  );
+  const onQueuedSendPointerUp = useCallback<React.PointerEventHandler<HTMLButtonElement>>(
+    (event) => {
+      const startedAt = forceSendPointerStartedAtRef.current;
+      forceSendPointerStartedAtRef.current = null;
+      if (forceSendLongPressTimerRef.current !== null) {
+        window.clearTimeout(forceSendLongPressTimerRef.current);
+        forceSendLongPressTimerRef.current = null;
+      }
+      const force = shouldForceQueuedSend({
+        modifierHeld: isForceSendHeld,
+        heldForMs: startedAt === null ? 0 : Date.now() - startedAt,
+      });
+      setIsForceSendHeld(false);
+      submitComposer(undefined, { force });
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    [isForceSendHeld, submitComposer],
+  );
+  const onQueuedSendPointerCancel = useCallback(() => {
+    forceSendPointerStartedAtRef.current = null;
+    if (forceSendLongPressTimerRef.current !== null) {
+      window.clearTimeout(forceSendLongPressTimerRef.current);
+      forceSendLongPressTimerRef.current = null;
+    }
+    setIsForceSendHeld(false);
+  }, []);
   const expandMobileComposer = useCallback(() => {
     if (composerBlurFrameRef.current !== null) {
       window.cancelAnimationFrame(composerBlurFrameRef.current);
@@ -1857,7 +1925,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       key === "Enter" &&
       shouldSubmitComposerOnEnter({ isMobileViewport, shiftKey: event.shiftKey })
     ) {
-      submitComposer();
+      submitComposer(undefined, { force: event.metaKey || event.ctrlKey });
       return true;
     }
     return false;
@@ -2734,9 +2802,13 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                   }
                   isPreparingWorktree={isPreparingWorktree}
                   hasSendableContent={composerSendState.hasSendableContent}
+                  isForceSendHeld={isForceSendHeld}
                   preserveComposerFocusOnPointerDown={isMobileViewport}
                   onPreviousPendingQuestion={onPreviousActivePendingUserInputQuestion}
                   onInterrupt={handleInterruptPrimaryAction}
+                  onQueuedSendPointerDown={onQueuedSendPointerDown}
+                  onQueuedSendPointerUp={onQueuedSendPointerUp}
+                  onQueuedSendPointerCancel={onQueuedSendPointerCancel}
                   onImplementPlanInNewThread={handleImplementPlanInNewThreadPrimaryAction}
                 />
               </div>

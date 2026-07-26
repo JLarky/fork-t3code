@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { formatPendingPrimaryActionLabel } from "./ComposerPrimaryActions";
+import { formatPendingPrimaryActionLabel, shouldForceQueuedSend } from "./ComposerPrimaryActions";
 
 describe("formatPendingPrimaryActionLabel", () => {
   it("returns 'Submitting...' while responding", () => {
@@ -89,5 +89,13 @@ describe("formatPendingPrimaryActionLabel", () => {
         questionIndex: 5,
       }),
     ).toBe("Submit answers");
+  });
+});
+
+describe("shouldForceQueuedSend", () => {
+  it("forces with a command modifier or a 650ms long press", () => {
+    expect(shouldForceQueuedSend({ modifierHeld: true, heldForMs: 0 })).toBe(true);
+    expect(shouldForceQueuedSend({ modifierHeld: false, heldForMs: 649 })).toBe(false);
+    expect(shouldForceQueuedSend({ modifierHeld: false, heldForMs: 650 })).toBe(true);
   });
 });

@@ -736,6 +736,51 @@ describe("applyThreadDetailEvent", () => {
     });
   });
 
+  describe("queued messages", () => {
+    it("adds and releases a queued message", () => {
+      const queued = applyThreadDetailEvent(baseThread, {
+        ...baseEventFields,
+        sequence: 15,
+        occurredAt: "2026-04-01T13:00:00.000Z",
+        aggregateKind: "thread",
+        aggregateId: ThreadId.make("thread-1"),
+        type: "thread.message-queued",
+        payload: {
+          threadId: ThreadId.make("thread-1"),
+          message: {
+            id: MessageId.make("queued-1"),
+            text: "Follow up",
+            attachments: [],
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            createdAt: "2026-04-01T13:00:00.000Z",
+          },
+        },
+      });
+      expect(queued.kind).toBe("updated");
+      if (queued.kind !== "updated") return;
+      expect(queued.thread.queuedMessages?.map((message) => message.id)).toEqual(["queued-1"]);
+
+      const released = applyThreadDetailEvent(queued.thread, {
+        ...baseEventFields,
+        sequence: 16,
+        occurredAt: "2026-04-01T13:01:00.000Z",
+        aggregateKind: "thread",
+        aggregateId: ThreadId.make("thread-1"),
+        type: "thread.queued-message-released",
+        payload: {
+          threadId: ThreadId.make("thread-1"),
+          messageId: MessageId.make("queued-1"),
+          releasedAt: "2026-04-01T13:01:00.000Z",
+        },
+      });
+      expect(released.kind).toBe("updated");
+      if (released.kind === "updated") {
+        expect(released.thread.queuedMessages).toEqual([]);
+      }
+    });
+  });
+
   describe("no-op events", () => {
     it("returns unchanged for approval-response-requested", () => {
       const result = applyThreadDetailEvent(baseThread, {
