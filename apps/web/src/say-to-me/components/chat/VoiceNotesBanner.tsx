@@ -1,13 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { CheckIcon, PlayIcon, SquareIcon, Volume2Icon } from "lucide-react";
+import * as Schema from "effect/Schema";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  PlayIcon,
+  SquareIcon,
+  Volume2Icon,
+} from "lucide-react";
 
 import { cn } from "~/lib/utils";
+import { useLocalStorage } from "~/hooks/useLocalStorage";
 import { Button } from "../../../components/ui/button";
 import { enqueueSound } from "../../audioQueue";
-import { sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
+import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
 import { voiceNotesSessionId } from "../../voiceSessionId";
 
 export { voiceNotesSessionId };
+
+export const SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY = "t3code:say-to-me-banner-collapsed:v1";
+const CollapsedSchema = Schema.Boolean;
 
 /** Upper bound on how long a single spoken note may hold the audio queue. */
 const SPEECH_TIMEOUT_MS = 120_000;
@@ -118,6 +130,17 @@ function statusBadgeClass(status: string): string {
   }
 }
 
+/** Without a voice room to open, the title falls back to the Say To Me home page. */
+export function sayToMeTitleUrl(sessionId: string, sessionState: SessionState): string {
+  return sessionState === "missing" ? SAY_TO_ME_UI_URL : sayToMeSessionUrl(sessionId);
+}
+
+export function sayToMeBannerSectionClass(collapsed: boolean): string {
+  return collapsed
+    ? "pointer-events-none absolute top-2 right-[10px] z-30 w-max max-w-[min(30%,18rem)] short:top-1"
+    : "mx-auto w-[min(48rem,calc(100%-2rem))] shrink-0 py-3 short:py-1.5";
+}
+
 export function claimVoiceNoteForAutoplay(
   note: Pick<VoiceNote, "id" | "author" | "status">,
   claimedIds: Set<string>,
@@ -127,6 +150,25 @@ export function claimVoiceNoteForAutoplay(
   }
   claimedIds.add(note.id);
   return true;
+}
+
+/** Claim every queued agent note so autoplay cannot restart after a manual stop-all. */
+export function claimQueuedNotesForStopAll(
+  notes: ReadonlyArray<Pick<VoiceNote, "id" | "author" | "status">>,
+  claimedIds: Set<string>,
+): ReadonlyArray<string> {
+  const stoppedIds: string[] = [];
+  for (const note of notes) {
+    if (note.author !== "agent" || note.status !== "queued" || claimedIds.has(note.id)) continue;
+    claimedIds.add(note.id);
+    stoppedIds.push(note.id);
+  }
+  return stoppedIds;
+}
+
+/** Notes are stored newest-first; the speaker icon replays that head entry when idle. */
+export function mostRecentVoiceNote<T>(notes: ReadonlyArray<T>): T | null {
+  return notes[0] ?? null;
 }
 
 type VoiceNotesBannerProps = {
@@ -148,6 +190,11 @@ export function VoiceNotesBanner({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useLocalStorage(
+    SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
+    false,
+    CollapsedSchema,
+  );
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const playRequestRef = useRef(0);
   const autoplayLockRef = useRef(false);
@@ -270,6 +317,14 @@ export function VoiceNotesBanner({
     if (activeId) updateNoteStatus(activeId, "stopped");
   };
 
+  const stopAllSpeech = () => {
+    const queuedIds = claimQueuedNotesForStopAll(notes, autoplayClaimedIdsRef.current);
+    for (const noteId of queuedIds) {
+      updateNoteStatus(noteId, "stopped");
+    }
+    stop();
+  };
+
   const play = (note: VoiceNote) => {
     stop();
     const playRequest = playRequestRef.current;
@@ -325,6 +380,16 @@ export function VoiceNotesBanner({
     });
   };
 
+  const onSpeakerIconClick = () => {
+    if (playingId) {
+      stopAllSpeech();
+      return;
+    }
+    const note = mostRecentVoiceNote(notes);
+    if (!note) return;
+    play(note);
+  };
+
   useEffect(() => {
     if (!hasLoadedRemoteNotes || playingId || autoplayLockRef.current) return;
     const nextNote = notes
@@ -340,141 +405,185 @@ export function VoiceNotesBanner({
     <section
       aria-label="Say To Me"
       data-testid="say-to-me-banner"
-      className="mx-auto w-[min(48rem,calc(100%-2rem))] shrink-0 py-3"
+      data-collapsed={collapsed ? "true" : "false"}
+      className={sayToMeBannerSectionClass(collapsed)}
     >
-      <div className="rounded-2xl border border-info/32 bg-info/4 p-3 text-card-foreground shadow-sm sm:p-4">
-        <div className="mb-3 flex items-start gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-info/12 text-info">
-            <Volume2Icon className="size-4" aria-hidden />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-medium text-sm">Say To Me</h2>
-              <a
-                href={sayToMeSessionUrl(sessionId)}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full bg-info/10 px-2 py-0.5 font-medium text-[10px] text-info uppercase tracking-wide"
+      <div
+        className={cn(
+          "rounded-2xl border border-info/32 text-card-foreground shadow-sm short:rounded-xl",
+          collapsed
+            ? "pointer-events-auto bg-card/95 p-2 shadow-md backdrop-blur-sm short:p-1.5"
+            : "bg-info/4 p-4 short:p-1.5",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center gap-3 short:gap-1.5",
+            !collapsed && "mb-3 items-start short:mb-1.5",
+          )}
+        >
+          <button
+            type="button"
+            aria-label={playingId ? "Stop all speech" : "Play most recent voice note"}
+            title={playingId ? "Stop all speech" : "Play most recent voice note"}
+            data-speaking={playingId ? "true" : "false"}
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-xl text-info transition-colors short:size-4 short:rounded-md",
+              playingId
+                ? "animate-status-pulse bg-info/45 hover:bg-info/55"
+                : "bg-info/12 hover:bg-info/20",
+            )}
+            onClick={onSpeakerIconClick}
+          >
+            <Volume2Icon className="size-4 short:size-2" aria-hidden />
+          </button>
+          <div className={cn("min-w-0", !collapsed && "flex-1")}>
+            <div className="flex items-center justify-between gap-3 short:gap-1.5">
+              <h2 className="font-medium text-sm short:text-[11px]">
+                <a
+                  href={sayToMeTitleUrl(sessionId, sessionState)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:underline"
+                >
+                  Say To Me
+                </a>
+              </h2>
+              <Button
+                size="xs"
+                variant="ghost"
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? "Expand Say To Me" : "Collapse Say To Me"}
+                className="h-6 shrink-0 gap-0.5 px-1.5 text-xs short:h-5 short:text-[9px]"
+                onClick={() => setCollapsed((value) => !value)}
               >
-                Preview
-              </a>
+                {collapsed ? (
+                  <ChevronDownIcon className="size-3 short:size-2.5" aria-hidden />
+                ) : (
+                  <ChevronUpIcon className="size-3 short:size-2.5" aria-hidden />
+                )}
+                {collapsed ? "Expand" : "Collapse"}
+              </Button>
             </div>
-            <p className="mt-0.5 text-muted-foreground text-xs">
-              Listen to short updates from your agents while they work.
-            </p>
           </div>
         </div>
 
-        <div className="max-h-64 space-y-2 overflow-y-auto">
-          {sessionState === "missing" ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5">
-              <p className="text-muted-foreground text-sm">
-                No voice session exists for this thread yet.
-              </p>
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={isCreatingSession}
-                onClick={createSession}
-              >
-                {isCreatingSession ? "Creating..." : "Create voice session"}
-              </Button>
-            </div>
-          ) : sessionState === "unavailable" ? (
-            <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm">
-              Say To Me is unavailable.
-            </p>
-          ) : !hasLoadedRemoteNotes ? (
-            <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm">
-              Loading voice notes...
-            </p>
-          ) : notes.length === 0 ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5">
-              <p className="text-muted-foreground text-sm">No voice notes yet.</p>
-              <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
-                Tell your agent how to use Say To Me
-              </Button>
-            </div>
-          ) : (
-            notes.map((note) => {
-              const isPlaying = playingId === note.id;
-              const status = isPlaying ? "speaking" : note.status;
-              return (
-                <article
-                  key={note.id}
-                  className={cn(
-                    "rounded-xl border bg-background/55 px-3 py-2.5 transition-colors",
-                    isPlaying ? "border-info/45 bg-info/8" : "border-border/60",
-                  )}
+        {collapsed ? null : (
+          <div className="max-h-64 space-y-2 overflow-y-auto short:max-h-32 short:space-y-1">
+            {sessionState === "missing" ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5 short:gap-1.5 short:rounded-lg short:px-1.5 short:py-1.5">
+                <p className="text-muted-foreground text-sm short:text-[11px]">
+                  No voice session exists for this thread yet.
+                </p>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  disabled={isCreatingSession}
+                  onClick={createSession}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
-                        <span className="font-mono">#{note.id}</span>
-                        <span className="font-medium text-foreground">{note.author}</span>
-                        <span>{note.time}</span>
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide",
-                            statusBadgeClass(status),
-                          )}
-                        >
-                          {status === "played" ? (
-                            <CheckIcon className="size-3" aria-hidden />
-                          ) : null}
-                          {status}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm leading-5">{note.text}</p>
-                      {note.attachments.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {note.attachments.map((attachment) => {
-                            const thumbnail = imageAttachmentThumbnail(attachment);
-                            return thumbnail ? (
-                              <a
-                                key={attachment.id}
-                                href={sayToMeAttachmentUrl(attachment.id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Open ${attachment.originalName}`}
-                              >
-                                <img
-                                  src={thumbnail}
-                                  alt={attachment.originalName}
-                                  className="max-h-32 max-w-48 rounded-lg border border-border/60 object-contain"
-                                />
-                              </a>
-                            ) : null;
-                          })}
+                  {isCreatingSession ? "Creating..." : "Create voice session"}
+                </Button>
+              </div>
+            ) : sessionState === "unavailable" ? (
+              <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm short:rounded-lg short:px-1.5 short:py-1.5 short:text-[11px]">
+                Say To Me is unavailable.
+              </p>
+            ) : !hasLoadedRemoteNotes ? (
+              <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm short:rounded-lg short:px-1.5 short:py-1.5 short:text-[11px]">
+                Loading voice notes...
+              </p>
+            ) : notes.length === 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5 short:gap-1.5 short:rounded-lg short:px-1.5 short:py-1.5">
+                <p className="text-muted-foreground text-sm short:text-[11px]">
+                  No voice notes yet.
+                </p>
+                <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
+                  Tell your agent how to use Say To Me
+                </Button>
+              </div>
+            ) : (
+              notes.map((note) => {
+                const isPlaying = playingId === note.id;
+                const status = isPlaying ? "speaking" : note.status;
+                return (
+                  <article
+                    key={note.id}
+                    className={cn(
+                      "rounded-xl border bg-background/55 px-3 py-2.5 transition-colors short:rounded-lg short:px-1.5 short:py-1.5",
+                      isPlaying ? "border-info/45 bg-info/8" : "border-border/60",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3 short:gap-1.5">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs short:gap-x-1.5 short:gap-y-0.5 short:text-[10px]">
+                          <span className="font-mono">#{note.id}</span>
+                          <span className="font-medium text-foreground">{note.author}</span>
+                          <span>{note.time}</span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide short:text-[9px]",
+                              statusBadgeClass(status),
+                            )}
+                          >
+                            {status === "played" ? (
+                              <CheckIcon className="size-3 short:size-2.5" aria-hidden />
+                            ) : null}
+                            {status}
+                          </span>
                         </div>
-                      ) : null}
+                        <p className="mt-1 text-sm leading-5 short:mt-0.5 short:text-[11px] short:leading-4">
+                          {note.text}
+                        </p>
+                        {note.attachments.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-2 short:mt-1 short:gap-1.5">
+                            {note.attachments.map((attachment) => {
+                              const thumbnail = imageAttachmentThumbnail(attachment);
+                              return thumbnail ? (
+                                <a
+                                  key={attachment.id}
+                                  href={sayToMeAttachmentUrl(attachment.id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  aria-label={`Open ${attachment.originalName}`}
+                                >
+                                  <img
+                                    src={thumbnail}
+                                    alt={attachment.originalName}
+                                    className="max-h-32 max-w-48 rounded-lg border border-border/60 object-contain short:max-h-16 short:max-w-24 short:rounded-md"
+                                  />
+                                </a>
+                              ) : null;
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          size="xs"
+                          variant={isPlaying ? "secondary" : "outline"}
+                          aria-label={`${isPlaying ? "Restart" : "Play"} voice note from ${note.author}`}
+                          onClick={() => play(note)}
+                        >
+                          <PlayIcon className="size-3" fill="currentColor" aria-hidden />
+                          {isPlaying ? "Restart" : "Play"}
+                        </Button>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          aria-label={`Stop voice note from ${note.author}`}
+                          disabled={!isPlaying}
+                          onClick={stop}
+                        >
+                          <SquareIcon className="size-3" fill="currentColor" aria-hidden />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        size="xs"
-                        variant={isPlaying ? "secondary" : "outline"}
-                        aria-label={`${isPlaying ? "Restart" : "Play"} voice note from ${note.author}`}
-                        onClick={() => play(note)}
-                      >
-                        <PlayIcon className="size-3" fill="currentColor" aria-hidden />
-                        {isPlaying ? "Restart" : "Play"}
-                      </Button>
-                      <Button
-                        size="icon-xs"
-                        variant="ghost"
-                        aria-label={`Stop voice note from ${note.author}`}
-                        disabled={!isPlaying}
-                        onClick={stop}
-                      >
-                        <SquareIcon className="size-3" fill="currentColor" aria-hidden />
-                      </Button>
-                    </div>
-                  </div>
-                </article>
-              );
-            })
-          )}
-        </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </section>
   );

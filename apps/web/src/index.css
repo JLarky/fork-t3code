@@ -3,6 +3,8 @@
 @custom-variant dark (&:is(.dark, .dark *));
 /* Window Controls Overlay: active when Electron exposes native titlebar control geometry. */
 @custom-variant wco (&:is(.wco, .wco *));
+/* Short viewports (phones, landscape phones) — prefer height over width for compact UI. */
+@custom-variant short (@media (max-height: 900px));
 
 /* On mobile, morph the expanded hero composer into the compact docked
    composer while it moves; the rest of the app remains visually stationary. */
