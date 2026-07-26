@@ -109,31 +109,31 @@ keypress, and delaying it behind a long spoken note would feel broken.
 
 ## Spaces Tracer (Cmd/Ctrl+I)
 
-Spaces membership for T3 **sessions** (threads) lives in the **Say To Me** database
-(`t3_space_sessions`), not in T3's orchestration DB. That keeps rebases onto
-upstream T3 light: T3 only adds a thin proxy and a UI overlay.
+Claiming a T3 thread into a Say To Me space attaches its voice room
+(`vo_t3_<environmentId>__<threadId>`) via native `claimSession` /
+`releaseSession`. Membership lives in Say To Me's existing `space_sessions`
+table — no parallel T3 membership schema — so claimed threads show on the
+Say To Me dashboard.
 
 - Press **Cmd/Ctrl+I** (outside inputs) to open the Spaces overlay.
 - On touch devices there is no shortcut, so open the sidebar, tap **Search**, and
   pick **Open Spaces**. Both entry points go through `say-to-me/spacesBus.ts`.
-- The overlay lists Say To Me spaces, shows claimed T3 threads, and lets you
-  claim an unclaimed thread into the selected space or release one.
+- The overlay lists Say To Me spaces, shows claimed `vo_t3_*` sessions, and lets
+  you claim an unclaimed thread (creating the voice room first if needed) or
+  release one.
 - Selected space header includes an underlined **open** link to
   `https://say.localhost:1311/dashboard/:spaceId` (`target=_blank`).
 - Shortcut is hardcoded in `SpacesOverlay` for now so we do not touch shared
   keybinding contracts.
 
-Same-origin proxy routes:
+Same-origin proxy routes (auth + thin mapping over native Say To Me APIs):
 
-- `GET /api/t3-spaces`
-- `POST /api/t3-spaces/:spaceId/sessions`
-- `DELETE /api/t3-spaces/sessions/:environmentId/:threadId`
+- `GET /api/t3-spaces` → `GET /api/spaces` (filters to `vo_t3_*` sessions)
+- `POST /api/t3-spaces/:spaceId/sessions` → ensure voice room + `claimSession`
+- `DELETE /api/t3-spaces/:spaceId/sessions/:environmentId/:threadId` →
+  `releaseSession`
 
-Upstream Say To Me routes are the same paths under `T3CODE_SAY_TO_ME_URL`
-(default `https://say.local:1355`). Membership stores `(environmentId,
-threadId)` references plus optional title/projectTitle labels — T3 remains
-authoritative for the thread records themselves. This mirrors Say To Me's
-native `claimSession` semantics.
+Upstream base URL is `T3CODE_SAY_TO_ME_URL` (default `https://say.local:1355`).
 
 ## Rebase Workflow
 

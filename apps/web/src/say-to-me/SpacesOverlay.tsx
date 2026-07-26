@@ -10,15 +10,16 @@ import {
   DialogTitle,
 } from "~/components/ui/dialog";
 import { useProjects, useThreadShells } from "~/state/entities";
-import { sayToMeSpaceDashboardUrl } from "./sayToMeUi";
+import { sayToMeSessionUrl, sayToMeSpaceDashboardUrl } from "./sayToMeUi";
 import { onOpenSpaces } from "./spacesBus";
+import { voiceNotesSessionId } from "./voiceSessionId";
 
 type T3SpaceSession = {
   readonly environmentId: string;
   readonly threadId: string;
+  readonly sessionId: string;
   readonly spaceId: string;
   readonly title: string;
-  readonly projectTitle: string;
   readonly claimedAt: string;
 };
 
@@ -34,11 +35,9 @@ function sessionKey(environmentId: string, threadId: string): string {
 }
 
 /**
- * Tracer overlay for Spaces. Opened with Cmd/Ctrl+I (hardcoded for the fork so
- * we do not touch the shared keybinding contracts yet). Memberships live in the
- * Say To Me DB and are reached through the same-origin T3 proxy.
- *
- * Claim unit is a T3 thread (Say To Me "session"), matching native claimSession.
+ * Spaces overlay. Opened with Cmd/Ctrl+I (or Search → Open Spaces).
+ * Claim attaches the thread's `vo_t3_<env>__<thread>` voice room into native
+ * Say To Me `space_sessions` via claimSession — so it shows on the dashboard.
  */
 export function SpacesOverlay() {
   const [open, setOpen] = useState(false);
@@ -57,6 +56,14 @@ export function SpacesOverlay() {
     }
     return map;
   }, [projects]);
+
+  const threadTitleByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const thread of threads) {
+      map.set(sessionKey(thread.environmentId, thread.id), thread.title);
+    }
+    return map;
+  }, [threads]);
 
   const loadSpaces = useCallback(async () => {
     setIsLoading(true);
@@ -93,7 +100,6 @@ export function SpacesOverlay() {
       if (event.altKey || event.shiftKey) return;
       const mod = event.metaKey || event.ctrlKey;
       if (!mod || event.key.toLowerCase() !== "i") return;
-      // Avoid stealing italic from focused contenteditable / inputs.
       const target = event.target;
       if (
         target instanceof HTMLElement &&
@@ -112,8 +118,6 @@ export function SpacesOverlay() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Touch devices have no shortcut, so the command palette and sidebar open the
-  // overlay through the bus instead.
   useEffect(() => onOpenSpaces(() => setOpen(true)), []);
 
   const selectedSpace = useMemo(
@@ -144,7 +148,6 @@ export function SpacesOverlay() {
   const claimSession = async (thread: (typeof threads)[number]) => {
     if (!selectedSpace) return;
     const key = sessionKey(thread.environmentId, thread.id);
-    const projectTitle = projectTitleById.get(`${thread.environmentId}::${thread.projectId}`) ?? "";
     setBusyKey(key);
     setError(null);
     try {
@@ -157,8 +160,6 @@ export function SpacesOverlay() {
           body: JSON.stringify({
             environmentId: thread.environmentId,
             threadId: thread.id,
-            title: thread.title,
-            projectTitle,
           }),
         },
       );
@@ -181,7 +182,7 @@ export function SpacesOverlay() {
     setError(null);
     try {
       const response = await fetch(
-        `/api/t3-spaces/sessions/${encodeURIComponent(session.environmentId)}/${encodeURIComponent(session.threadId)}`,
+        `/api/t3-spaces/${encodeURIComponent(session.spaceId)}/sessions/${encodeURIComponent(session.environmentId)}/${encodeURIComponent(session.threadId)}`,
         { method: "DELETE", credentials: "include" },
       );
       if (!response.ok && response.status !== 204) {
@@ -202,8 +203,8 @@ export function SpacesOverlay() {
         <DialogHeader className="border-border/60 border-b px-4 py-3">
           <DialogTitle>Spaces</DialogTitle>
           <DialogDescription>
-            Claim T3 threads into Say To Me spaces. Memberships live in Say To Me; press Cmd/Ctrl+I
-            to toggle.
+            Claim T3 threads into Say To Me spaces via their voice rooms. Press Cmd/Ctrl+I to
+            toggle.
           </DialogDescription>
         </DialogHeader>
 
@@ -264,6 +265,8 @@ export function SpacesOverlay() {
                     <ul className="flex flex-col gap-1.5">
                       {selectedSpace.sessions.map((session) => {
                         const key = sessionKey(session.environmentId, session.threadId);
+                        const title =
+                          threadTitleByKey.get(key) || session.title || session.threadId;
                         return (
                           <li
                             key={key}
@@ -271,10 +274,20 @@ export function SpacesOverlay() {
                           >
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">
-                                {session.title || session.threadId}
+                                <a
+                                  href={sayToMeSessionUrl(
+                                    session.sessionId ||
+                                      voiceNotesSessionId(session.environmentId, session.threadId),
+                                  )}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="hover:underline"
+                                >
+                                  {title}
+                                </a>
                               </p>
                               <p className="text-muted-foreground truncate text-xs">
-                                {session.projectTitle || session.threadId}
+                                {session.sessionId}
                               </p>
                             </div>
                             <Button

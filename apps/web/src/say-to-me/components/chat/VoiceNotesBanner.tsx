@@ -5,6 +5,9 @@ import { cn } from "~/lib/utils";
 import { Button } from "../../../components/ui/button";
 import { enqueueSound } from "../../audioQueue";
 import { sayToMeSessionUrl } from "../../sayToMeUi";
+import { voiceNotesSessionId } from "../../voiceSessionId";
+
+export { voiceNotesSessionId };
 
 /** Upper bound on how long a single spoken note may hold the audio queue. */
 const SPEECH_TIMEOUT_MS = 120_000;
@@ -15,10 +18,6 @@ const PREFERRED_SPEECH_VOICE_NAMES = [
   "Microsoft Emma Online (Natural) - English (United States)",
   "Google US English",
 ];
-
-export function voiceNotesSessionId(environmentId: string, threadId: string): string {
-  return `vo_t3_${environmentId}__${threadId}`;
-}
 
 function voiceNotesUrl(sessionId: string): string {
   return `/api/voice-notes/${encodeURIComponent(sessionId)}`;
