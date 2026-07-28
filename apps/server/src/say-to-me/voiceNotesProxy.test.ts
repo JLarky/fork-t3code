@@ -3,8 +3,10 @@ import { describe, expect, it } from "@effect/vitest";
 import {
   sayToMeCreateSessionUrl,
   sayToMeEventsUrl,
+  sayToMeImportSessionUrl,
   sayToMeMessageStatusUrl,
   sayToMeMessagesUrl,
+  sayToMeSettingsUrl,
   sayToMeVoiceSessionName,
 } from "./voiceNotesProxy.ts";
 
@@ -36,6 +38,12 @@ describe("voice notes proxy", () => {
     expect(sayToMeCreateSessionUrl("https://say.local:1355/")).toBe(
       "https://say.local:1355/api/cli-sessions",
     );
+    expect(sayToMeSettingsUrl("https://say.local:1355/")).toBe(
+      "https://say.local:1355/api/settings",
+    );
+    expect(
+      sayToMeImportSessionUrl("https://say.local:1355", "t3_2572d5ed-a15b-487f-8102-71a350b357ed"),
+    ).toBe("https://say.local:1355/api/sessions/t3_2572d5ed-a15b-487f-8102-71a350b357ed/import");
     expect(
       sayToMeVoiceSessionName(
         "vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed",

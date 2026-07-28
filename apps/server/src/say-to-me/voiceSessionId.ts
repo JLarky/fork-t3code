@@ -2,8 +2,8 @@
  * Deterministic Say To Me voice-room id for a T3 thread.
  * Keep in sync with apps/web/src/say-to-me/voiceSessionId.ts.
  */
-export function voiceNotesSessionId(environmentId: string, threadId: string): string {
-  return `vo_t3_${environmentId}__${threadId}`;
+export function voiceNotesSessionId(_environmentId: string, threadId: string): string {
+  return `t3_${threadId}`;
 }
 
 const VO_T3_PATTERN =

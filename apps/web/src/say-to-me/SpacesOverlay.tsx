@@ -139,7 +139,7 @@ export function prioritizeCurrentThread(
 
 /**
  * Spaces overlay. Opened with Cmd/Ctrl+I (or Search → Open Spaces).
- * Claim attaches the thread's `vo_t3_<env>__<thread>` voice room into native
+ * Claim attaches the thread's T3 worktree voice room into native
  * Say To Me `space_sessions` via claimSession — so it shows on the dashboard.
  */
 export function SpacesOverlay() {

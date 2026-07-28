@@ -1,9 +1,9 @@
 /**
  * Deterministic Say To Me voice-room id for a T3 thread.
- * Same formula the voice-notes banner uses (`vo_t3_<env>__<thread>`).
+ * The current T3 worktree instance uses the T3 session id directly.
  */
-export function voiceNotesSessionId(environmentId: string, threadId: string): string {
-  return `vo_t3_${environmentId}__${threadId}`;
+export function voiceNotesSessionId(_environmentId: string, threadId: string): string {
+  return `t3_${threadId}`;
 }
 
 const VO_T3_PATTERN =
