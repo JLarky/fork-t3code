@@ -507,9 +507,22 @@ export function VoiceNotesBanner({
                 </Button>
               </div>
             ) : sessionState === "unavailable" ? (
-              <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm short:rounded-lg short:px-1.5 short:py-1.5 short:text-[11px]">
-                Say To Me is unavailable.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5 short:gap-1.5 short:rounded-lg short:px-1.5 short:py-1.5">
+                <p className="text-muted-foreground text-sm short:text-[11px]">
+                  Say To Me is unavailable.
+                </p>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    setSessionState("loading");
+                    setHasLoadedRemoteNotes(false);
+                    setReloadToken((token) => token + 1);
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : !hasLoadedRemoteNotes ? (
               <p className="rounded-xl bg-background/55 px-3 py-2.5 text-muted-foreground text-sm short:rounded-lg short:px-1.5 short:py-1.5 short:text-[11px]">
                 Loading voice notes...
