@@ -128,9 +128,6 @@ const DEFAULT_BINDINGS = compile([
   { shortcut: modShortcut("o"), command: "editor.openFavorite" },
   { shortcut: modShortcut("[", { shiftKey: true }), command: "thread.previous" },
   { shortcut: modShortcut("]", { shiftKey: true }), command: "thread.next" },
-  { shortcut: modShortcut("1"), command: "thread.jump.1" },
-  { shortcut: modShortcut("2"), command: "thread.jump.2" },
-  { shortcut: modShortcut("3"), command: "thread.jump.3" },
   {
     shortcut: modShortcut("1"),
     command: "modelPicker.jump.1",
@@ -337,7 +334,7 @@ describe("shortcutLabelForCommand", () => {
     );
     assert.strictEqual(
       shortcutLabelForCommand(DEFAULT_BINDINGS, "thread.jump.3", "MacIntel"),
-      "⌘3",
+      null,
     );
     assert.strictEqual(
       shortcutLabelForCommand(DEFAULT_BINDINGS, "thread.previous", "Linux"),
@@ -413,18 +410,19 @@ describe("thread navigation helpers", () => {
   });
 
   it("shows jump hints only when configured modifiers match", () => {
+    const threadBindings = compile([{ shortcut: modShortcut("1"), command: "thread.jump.1" }]);
     assert.isTrue(
-      shouldShowThreadJumpHints(event({ metaKey: true }), DEFAULT_BINDINGS, {
+      shouldShowThreadJumpHints(event({ metaKey: true }), threadBindings, {
         platform: "MacIntel",
       }),
     );
     assert.isFalse(
-      shouldShowThreadJumpHints(event({ metaKey: true, shiftKey: true }), DEFAULT_BINDINGS, {
+      shouldShowThreadJumpHints(event({ metaKey: true, shiftKey: true }), threadBindings, {
         platform: "MacIntel",
       }),
     );
     assert.isTrue(
-      shouldShowThreadJumpHints(event({ ctrlKey: true }), DEFAULT_BINDINGS, {
+      shouldShowThreadJumpHints(event({ ctrlKey: true }), threadBindings, {
         platform: "Linux",
       }),
     );
@@ -593,6 +591,21 @@ describe("cross-command precedence", () => {
 });
 
 describe("resolveShortcutCommand", () => {
+  it("does not switch threads on an unscoped command-number shortcut", () => {
+    assert.isNull(
+      resolveShortcutCommand(event({ key: "1", metaKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+      }),
+    );
+    assert.strictEqual(
+      resolveShortcutCommand(event({ key: "1", metaKey: true }), DEFAULT_BINDINGS, {
+        platform: "MacIntel",
+        context: { modelPickerOpen: true },
+      }),
+      "modelPicker.jump.1",
+    );
+  });
+
   it("returns dynamic script commands", () => {
     const keybindings = compile([{ shortcut: modShortcut("r"), command: "script.setup.run" }]);
 
