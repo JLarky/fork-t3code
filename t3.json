@@ -7,6 +7,15 @@
       "command": "vp i && ln -sf $T3CODE_PROJECT_ROOT/.env .env && ln -sf $T3CODE_PROJECT_ROOT/infra/relay/.env infra/relay/.env",
       "icon": "configure",
       "runOnWorktreeCreate": true
+    },
+    {
+      "name": "stop 5477",
+      "command": "boo kill t3-worktree-5477"
+    },
+    {
+      "name": "start 5477",
+      "command": "boo new t3-worktree-5477 -d -- bash -lc '\n  cd /home/ylapin.guest/.t3/worktrees/t3code/t3code-84ecd53d &&\n  NODE_EXTRA_CA_CERTS=/home/ylapin.guest/.portless/ca.pem \\\n  PORT=5477 \\\n  T3CODE_PORT=13777 \\\n  VITE_DEV_SERVER_URL=http://localhost:5477 \\\n  VITE_HTTP_URL=http://localhost:13777 \\\n  VITE_WS_URL=ws://localhost:13777 \\\n  vp run --filter=@t3tools/contracts --filter=@t3tools/web --filter=t3 --parallel dev\n'",
+      "previewUrl": "http://localhost:5477"
     }
   ]
 }
