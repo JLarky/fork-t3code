@@ -1,8 +1,23 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
+  formatThreadDocumentTitle,
   resolveServerBackedAppDisplayName,
   resolveServerBackedAppStageLabel,
 } from "./branding.logic";
+
+describe("formatThreadDocumentTitle", () => {
+  it("puts the active thread before the app title", () => {
+    expect(formatThreadDocumentTitle({ threadTitle: "Say Hi", appTitle: "T3 Code (Dev)" })).toBe(
+      "Say Hi - T3 Code (Dev)",
+    );
+  });
+
+  it("falls back to the app title when there is no thread title", () => {
+    expect(formatThreadDocumentTitle({ threadTitle: "  ", appTitle: "T3 Code (Dev)" })).toBe(
+      "T3 Code (Dev)",
+    );
+  });
+});
 
 const originalWindow = globalThis.window;
 

@@ -36,3 +36,11 @@ export function resolveServerBackedAppDisplayName(input: {
     ? input.fallbackDisplayName
     : formatAppDisplayName({ baseName: input.baseName, stageLabel });
 }
+
+export function formatThreadDocumentTitle(input: {
+  readonly threadTitle: string | null | undefined;
+  readonly appTitle: string;
+}): string {
+  const threadTitle = input.threadTitle?.trim();
+  return threadTitle ? `${threadTitle} - ${input.appTitle}` : input.appTitle;
+}
