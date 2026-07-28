@@ -1049,7 +1049,6 @@ export default function SidebarV2() {
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const clearSelection = useThreadSelectionStore((s) => s.clearSelection);
   const setSelectionAnchor = useThreadSelectionStore((s) => s.setAnchor);
-  const toggleThreadSelection = useThreadSelectionStore((s) => s.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((s) => s.rangeSelectTo);
   const markThreadUnread = useUiStateStore((s) => s.markThreadUnread);
   const routeTarget = useParams({
@@ -1638,7 +1637,11 @@ export default function SidebarV2() {
       const threadKey = scopedThreadKey(threadRef);
       if (isModClick) {
         event.preventDefault();
-        toggleThreadSelection(threadKey);
+        const location = router.buildLocation({
+          to: "/$environmentId/$threadId",
+          params: buildThreadRouteParams(threadRef),
+        });
+        window.open(location.href, "_blank", "noopener,noreferrer");
         return;
       }
       if (event.shiftKey) {
@@ -1651,7 +1654,7 @@ export default function SidebarV2() {
       }
       navigateToThread(threadRef);
     },
-    [navigateToThread, rangeSelectTo, toggleThreadSelection],
+    [navigateToThread, rangeSelectTo, router],
   );
 
   // A settle per thread at a time: double clicks and repeated menu picks
