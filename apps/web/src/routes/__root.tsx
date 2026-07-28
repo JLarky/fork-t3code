@@ -7,11 +7,12 @@ import {
   type ErrorComponentProps,
   useLocation,
   useNavigate,
+  useParams,
 } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { APP_BASE_NAME, APP_DISPLAY_NAME, APP_STAGE_LABEL } from "../branding";
-import { resolveServerBackedAppDisplayName } from "../branding.logic";
+import { formatThreadDocumentTitle, resolveServerBackedAppDisplayName } from "../branding.logic";
 import { AppSidebarLayout } from "../components/AppSidebarLayout";
 import { CommandPalette } from "../components/CommandPalette";
 import { ConnectOnboardingDialog } from "../components/cloud/ConnectOnboardingDialog";
@@ -48,7 +49,13 @@ import {
   primaryServerConfigEventAtom,
   primaryServerWelcomeAtom,
 } from "../state/server";
-import { readProject, setActiveEnvironmentId, useActiveEnvironmentId } from "../state/entities";
+import {
+  readProject,
+  setActiveEnvironmentId,
+  useActiveEnvironmentId,
+  useThreadShell,
+} from "../state/entities";
+import { resolveThreadRouteRef } from "../threadRoutes";
 import {
   createKeybindingsUpdateToastController,
   type KeybindingsUpdateToastController,
@@ -155,13 +162,22 @@ function GlassAppearanceSync() {
 }
 
 function DocumentTitleSync() {
+  const routeThreadRef = useParams({
+    strict: false,
+    select: (params) => resolveThreadRouteRef(params),
+  });
+  const thread = useThreadShell(routeThreadRef);
   const primaryServerVersion =
     useAtomValue(primaryServerConfigAtom)?.environment.serverVersion ?? null;
-  const title = resolveServerBackedAppDisplayName({
+  const appTitle = resolveServerBackedAppDisplayName({
     baseName: APP_BASE_NAME,
     fallbackDisplayName: APP_DISPLAY_NAME,
     fallbackStageLabel: APP_STAGE_LABEL,
     primaryServerVersion,
+  });
+  const title = formatThreadDocumentTitle({
+    threadTitle: thread?.title,
+    appTitle,
   });
 
   useEffect(() => {
