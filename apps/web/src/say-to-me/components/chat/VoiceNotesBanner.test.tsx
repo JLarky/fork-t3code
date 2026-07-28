@@ -109,13 +109,11 @@ describe("Say To Me section", () => {
   });
 
   it("links the title to the voice room, or to the home page when no session exists", () => {
-    expect(sayToMeTitleUrl("vo_t3_env__thread", "ready")).toBe(
-      "https://say.localhost:1311/ses/vo_t3_env__thread",
+    expect(sayToMeTitleUrl("t3_thread", "ready")).toBe("https://say.localhost:1311/ses/t3_thread");
+    expect(sayToMeTitleUrl("t3_thread", "loading")).toBe(
+      "https://say.localhost:1311/ses/t3_thread",
     );
-    expect(sayToMeTitleUrl("vo_t3_env__thread", "loading")).toBe(
-      "https://say.localhost:1311/ses/vo_t3_env__thread",
-    );
-    expect(sayToMeTitleUrl("vo_t3_env__thread", "missing")).toBe(SAY_TO_ME_UI_URL);
+    expect(sayToMeTitleUrl("t3_thread", "missing")).toBe(SAY_TO_ME_UI_URL);
   });
 
   it("claims a queued message only once across repeated snapshots", () => {

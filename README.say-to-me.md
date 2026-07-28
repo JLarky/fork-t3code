@@ -45,11 +45,11 @@ Set `T3CODE_SAY_TO_ME_URL` to override that endpoint.
 
 Each T3 Code thread gets its own Say To Me room:
 
-`vo_t3_<environmentId>__<threadId>`
+`t3_<threadId>`
 
-Example: environment `3bae4963-5d72-4221-835b-66e2770e72d0` and thread
-`2572d5ed-a15b-487f-8102-71a350b357ed` map to
-`vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed`.
+Example: thread `2572d5ed-a15b-487f-8102-71a350b357ed` maps to
+`t3_2572d5ed-a15b-487f-8102-71a350b357ed`. The server instance discovery
+metadata identifies which T3 server owns the thread.
 
 - `GET /api/voice-notes/:sessionId` loads the initial message snapshot, and
   returns 404 when the room does not exist yet.
@@ -122,7 +122,7 @@ keypress, and delaying it behind a long spoken note would feel broken.
 ## Spaces Tracer (Cmd/Ctrl+I)
 
 Claiming a T3 thread into a Say To Me space attaches its voice room
-(`vo_t3_<environmentId>__<threadId>`) via native `claimSession` /
+(`t3_<threadId>`) via native `claimSession` /
 `releaseSession`. Membership lives in Say To Me's existing `space_sessions`
 table — no parallel T3 membership schema — so claimed threads show on the
 Say To Me dashboard.
@@ -130,7 +130,7 @@ Say To Me dashboard.
 - Press **Cmd/Ctrl+I** (outside inputs) to open the Spaces overlay.
 - On touch devices there is no shortcut, so open the sidebar, tap **Search**, and
   pick **Open Spaces**. Both entry points go through `say-to-me/spacesBus.ts`.
-- The overlay lists Say To Me spaces, shows claimed `vo_t3_*` sessions, and lets
+- The overlay lists Say To Me spaces, shows claimed `t3_*` sessions, and lets
   you claim an unclaimed thread (creating the voice room first if needed) or
   release one.
 - Selected space header includes an underlined **open** link to
@@ -140,7 +140,7 @@ Say To Me dashboard.
 
 Same-origin proxy routes (auth + thin mapping over native Say To Me APIs):
 
-- `GET /api/t3-spaces` → `GET /api/spaces` (filters to `vo_t3_*` sessions)
+- `GET /api/t3-spaces` → `GET /api/spaces` (filters to T3-owned `t3_*` sessions)
 - `POST /api/t3-spaces/:spaceId/sessions` → ensure voice room + `claimSession`
 - `DELETE /api/t3-spaces/:spaceId/sessions/:environmentId/:threadId` →
   `releaseSession`

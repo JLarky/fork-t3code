@@ -16,13 +16,8 @@ describe("voice notes proxy", () => {
       "https://say.local:1355/api/sessions/vo_t3luna/messages",
     );
     expect(
-      sayToMeMessagesUrl(
-        "https://say.local:1355",
-        "vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed",
-      ),
-    ).toBe(
-      "https://say.local:1355/api/sessions/vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed/messages",
-    );
+      sayToMeMessagesUrl("https://say.local:1355", "t3_2572d5ed-a15b-487f-8102-71a350b357ed"),
+    ).toBe("https://say.local:1355/api/sessions/t3_2572d5ed-a15b-487f-8102-71a350b357ed/messages");
     expect(sayToMeMessagesUrl("https://say.local:1355", "vo/../secret")).toBe(
       "https://say.local:1355/api/sessions/vo%2F..%2Fsecret/messages",
     );
@@ -44,11 +39,9 @@ describe("voice notes proxy", () => {
     expect(
       sayToMeImportSessionUrl("https://say.local:1355", "t3_2572d5ed-a15b-487f-8102-71a350b357ed"),
     ).toBe("https://say.local:1355/api/sessions/t3_2572d5ed-a15b-487f-8102-71a350b357ed/import");
-    expect(
-      sayToMeVoiceSessionName(
-        "vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed",
-      ),
-    ).toBe("t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed");
+    expect(sayToMeVoiceSessionName("t3_2572d5ed-a15b-487f-8102-71a350b357ed")).toBe(
+      "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
+    );
     expect(sayToMeVoiceSessionName("t3_already_stripped")).toBe("t3_already_stripped");
   });
 });
