@@ -16,6 +16,8 @@ import {
   failEnvironmentScopeRequired,
 } from "../auth/http.ts";
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
+import * as ServerConfig from "../config.ts";
 import {
   sayToMeBaseUrl,
   sayToMeCreateSessionUrl,
@@ -32,6 +34,7 @@ const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 type NativeSpaceSession = {
   readonly id?: unknown;
+  readonly t3InstanceId?: unknown;
   readonly title?: unknown;
   readonly importedAt?: unknown;
   readonly archived?: unknown;
@@ -64,6 +67,11 @@ type MappedSpace = {
   readonly sessions: ReadonlyArray<MappedSpaceSession>;
 };
 
+export type SpaceMappingContext = {
+  readonly environmentId: string;
+  readonly t3InstanceId: string;
+};
+
 const authenticateSpacesRequest = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest;
   const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
@@ -91,7 +99,7 @@ function sayToMeSpaceActionUrl(baseUrl: string, spaceId: string): string {
   ).toString();
 }
 
-function mapSpacesFromNative(body: unknown): MappedSpace[] {
+export function mapSpacesFromNative(body: unknown, context: SpaceMappingContext): MappedSpace[] {
   const root =
     typeof body === "object" && body !== null && "state" in body
       ? (body as { state?: { spaces?: unknown } }).state
@@ -112,8 +120,10 @@ function mapSpacesFromNative(body: unknown): MappedSpace[] {
       if (raw.archived === true) continue;
       const parsed = parseVoiceNotesSessionId(raw.id);
       if (!parsed) continue;
+      const isCurrentFormat = raw.id.startsWith("t3_");
+      if (isCurrentFormat && raw.t3InstanceId !== context.t3InstanceId) continue;
       mappedSessions.push({
-        environmentId: parsed.environmentId,
+        environmentId: parsed.environmentId || context.environmentId,
         threadId: parsed.threadId,
         sessionId: raw.id,
         spaceId,
@@ -137,6 +147,15 @@ function mapSpacesFromNative(body: unknown): MappedSpace[] {
   });
 }
 
+const spaceMappingContext = Effect.gen(function* () {
+  const config = yield* ServerConfig.ServerConfig;
+  const environment = yield* ServerEnvironment.ServerEnvironment;
+  return {
+    environmentId: yield* environment.getEnvironmentId,
+    t3InstanceId: `t3-${config.devUrl?.port ?? config.port}`,
+  } satisfies SpaceMappingContext;
+});
+
 const authCatchTags = {
   EnvironmentAuthInvalidError: HttpServerRespondable.toResponse,
   EnvironmentInternalError: HttpServerRespondable.toResponse,
@@ -148,6 +167,7 @@ export const t3SpacesListProxyRouteLayer = HttpRouter.add(
   SPACES_LIST_ROUTE,
   Effect.gen(function* () {
     yield* authenticateSpacesRequest;
+    const mappingContext = yield* spaceMappingContext;
     const httpClient = yield* HttpClient.HttpClient;
     const upstream = yield* httpClient.get(sayToMeSpacesUrl(sayToMeBaseUrl())).pipe(
       Effect.tapError((cause) => Effect.logWarning("Failed to load Say To Me spaces", { cause })),
@@ -167,7 +187,7 @@ export const t3SpacesListProxyRouteLayer = HttpRouter.add(
       return HttpServerResponse.text("Unable to load spaces", { status: 502 });
     }
     yield* annotateEnvironmentRequest("t3SpacesProxy");
-    return HttpServerResponse.jsonUnsafe({ spaces: mapSpacesFromNative(body) });
+    return HttpServerResponse.jsonUnsafe({ spaces: mapSpacesFromNative(body, mappingContext) });
   }).pipe(Effect.catchTags(authCatchTags)),
 );
 
@@ -176,6 +196,7 @@ export const t3SpacesClaimProxyRouteLayer = HttpRouter.add(
   SPACES_CLAIM_ROUTE,
   Effect.gen(function* () {
     yield* authenticateSpacesRequest;
+    const mappingContext = yield* spaceMappingContext;
     const request = yield* HttpServerRequest.HttpServerRequest;
     const path = new URL(request.url, "http://localhost").pathname;
     const match = path.match(/^\/api\/t3-spaces\/([^/]+)\/sessions$/);
@@ -279,7 +300,7 @@ export const t3SpacesClaimProxyRouteLayer = HttpRouter.add(
       return HttpServerResponse.text("Unable to claim session", { status: 502 });
     }
 
-    const spaces = mapSpacesFromNative(body);
+    const spaces = mapSpacesFromNative(body, mappingContext);
     const claimed =
       spaces
         .find((space) => space.id === spaceId)
