@@ -1,3 +1,5 @@
+import * as NodePath from "node:path";
+
 import { AuthOrchestrationReadScope } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import {
@@ -17,6 +19,7 @@ import {
   failEnvironmentScopeRequired,
 } from "../auth/http.ts";
 import * as EnvironmentAuth from "../auth/EnvironmentAuth.ts";
+import * as ServerConfig from "../config.ts";
 
 const VOICE_NOTES_ROUTE = "/api/voice-notes/*";
 const VOICE_NOTE_CREATE_ROUTE = "/api/voice-notes/:sessionId";
@@ -72,9 +75,110 @@ export function sayToMeCreateSessionUrl(baseUrl: string): string {
   return new URL("/api/cli-sessions", `${baseUrl.replace(/\/$/, "")}/`).toString();
 }
 
+export function sayToMeSettingsUrl(baseUrl: string): string {
+  return new URL("/api/settings", `${baseUrl.replace(/\/$/, "")}/`).toString();
+}
+
+export function sayToMeImportSessionUrl(baseUrl: string, sessionId: string): string {
+  return new URL(
+    `/api/sessions/${encodeURIComponent(sessionId)}/import`,
+    `${baseUrl.replace(/\/$/, "")}/`,
+  ).toString();
+}
+
 /** Say To Me slugifies `name` into `vo_<slug>`, so strip a leading `vo_`. */
 export function sayToMeVoiceSessionName(sessionId: string): string {
   return sessionId.startsWith("vo_") ? sessionId.slice(3) : sessionId;
+}
+
+type PublicT3ServerInstanceSettings = {
+  readonly id: string;
+  readonly binPath?: string;
+  readonly baseDir: string;
+  readonly originUrl: string;
+  readonly isDev: boolean;
+};
+
+type T3ServerInstanceSettings = PublicT3ServerInstanceSettings & {
+  readonly binPath: string;
+};
+
+function t3CheckoutPath(cwd: string): string {
+  const absoluteCwd = NodePath.resolve(cwd);
+  return NodePath.basename(absoluteCwd) === "server" &&
+    NodePath.basename(NodePath.dirname(absoluteCwd)) === "apps"
+    ? NodePath.resolve(absoluteCwd, "../..")
+    : absoluteCwd;
+}
+
+function currentT3ServerInstanceSettings(
+  config: ServerConfig.ServerConfig["Service"],
+): T3ServerInstanceSettings {
+  const originUrl = config.devUrl?.toString() || process.env.VITE_HTTP_URL || "";
+  return {
+    id: `t3-${config.devUrl?.port ?? config.port}`,
+    binPath: t3CheckoutPath(config.cwd),
+    baseDir: config.baseDir,
+    originUrl,
+    isDev: config.devUrl !== undefined,
+  };
+}
+
+function publicT3ServerInstances(body: unknown): PublicT3ServerInstanceSettings[] | null {
+  if (typeof body !== "object" || body === null || !("t3ServerInstances" in body)) return null;
+  const instances = (body as { t3ServerInstances?: unknown }).t3ServerInstances;
+  if (!Array.isArray(instances)) return null;
+  return instances.filter(
+    (instance): instance is T3ServerInstanceSettings =>
+      typeof instance === "object" &&
+      instance !== null &&
+      typeof (instance as PublicT3ServerInstanceSettings).id === "string" &&
+      (typeof (instance as PublicT3ServerInstanceSettings).binPath === "string" ||
+        typeof (instance as PublicT3ServerInstanceSettings).binPath === "undefined") &&
+      typeof (instance as PublicT3ServerInstanceSettings).baseDir === "string" &&
+      typeof (instance as PublicT3ServerInstanceSettings).originUrl === "string" &&
+      typeof (instance as PublicT3ServerInstanceSettings).isDev === "boolean",
+  );
+}
+
+function sameT3ServerInstance(
+  left: PublicT3ServerInstanceSettings,
+  right: T3ServerInstanceSettings,
+): boolean {
+  return (
+    left.id === right.id &&
+    (left.binPath ?? "") === right.binPath &&
+    left.baseDir === right.baseDir &&
+    left.originUrl === right.originUrl &&
+    left.isDev === right.isDev
+  );
+}
+
+function ensureT3ServerInstance(
+  httpClient: HttpClient.HttpClient,
+  baseUrl: string,
+  instance: T3ServerInstanceSettings,
+): Effect.Effect<void, unknown> {
+  const settingsUrl = sayToMeSettingsUrl(baseUrl);
+  return Effect.gen(function* () {
+    const currentResponse = yield* httpClient.get(settingsUrl).pipe(
+      Effect.flatMap(HttpClientResponse.filterStatusOk),
+      Effect.flatMap((response) => response.json),
+    );
+    const currentInstances = publicT3ServerInstances(currentResponse);
+    if (currentInstances === null) {
+      return yield* Effect.fail(new Error("Say To Me returned invalid T3 instance settings."));
+    }
+
+    const existing = currentInstances.find((candidate) => candidate.id === instance.id);
+    if (existing && sameT3ServerInstance(existing, instance)) return;
+
+    const nextInstances = currentInstances.filter((candidate) => candidate.id !== instance.id);
+    nextInstances.push(instance);
+    yield* httpClient
+      .patch(settingsUrl, { body: HttpBody.jsonUnsafe({ t3ServerInstances: nextInstances }) })
+      .pipe(Effect.flatMap(HttpClientResponse.filterStatusOk));
+  });
 }
 
 export const voiceNotesProxyRouteLayer = HttpRouter.add(
@@ -142,35 +246,28 @@ export const voiceNoteCreateProxyRouteLayer = HttpRouter.add(
     }
 
     const httpClient = yield* HttpClient.HttpClient;
+    const serverConfig = yield* ServerConfig.ServerConfig;
+    yield* ensureT3ServerInstance(
+      httpClient,
+      sayToMeBaseUrl(),
+      currentT3ServerInstanceSettings(serverConfig),
+    ).pipe(
+      Effect.tapError((cause) =>
+        Effect.logWarning("Failed to ensure Say To Me T3 instance", { cause, sessionId }),
+      ),
+      Effect.orElseSucceed(() => undefined),
+    );
+    // T3 sessions are imported through Say To Me's T3 backend. That verifies
+    // the thread against configured T3 instances, creates the Say To Me row
+    // when it is missing, and records the matching t3InstanceId/cwd.
     const response = yield* httpClient
-      .post(sayToMeCreateSessionUrl(sayToMeBaseUrl()), {
-        body: HttpBody.jsonUnsafe({
-          provider: "voice",
-          name: sayToMeVoiceSessionName(sessionId),
-        }),
-      })
+      .post(sayToMeImportSessionUrl(sayToMeBaseUrl(), sessionId))
       .pipe(
         Effect.flatMap(HttpClientResponse.filterStatusOk),
         Effect.flatMap((upstream) => upstream.json),
-        Effect.flatMap((body) => {
-          const createdId =
-            typeof body === "object" &&
-            body !== null &&
-            "session" in body &&
-            typeof (body as { session?: { id?: unknown } }).session?.id === "string"
-              ? (body as { session: { id: string } }).session.id
-              : null;
-          if (createdId !== sessionId) {
-            return Effect.succeed(
-              HttpServerResponse.text("Created Say To Me session id did not match", {
-                status: 502,
-              }),
-            );
-          }
-          return Effect.succeed(HttpServerResponse.jsonUnsafe(body));
-        }),
+        Effect.map((body) => HttpServerResponse.jsonUnsafe(body)),
         Effect.tapError((cause) =>
-          Effect.logWarning("Failed to create Say To Me voice session", {
+          Effect.logWarning("Failed to import T3 session into Say To Me", {
             cause,
             sessionId,
           }),

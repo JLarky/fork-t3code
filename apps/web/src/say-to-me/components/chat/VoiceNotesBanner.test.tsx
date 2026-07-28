@@ -46,13 +46,13 @@ describe("Say To Me section", () => {
     expect(formatSayToMeTimestamp("2026-07-26 19:17:58")).toBe(expected);
   });
 
-  it("builds a per-thread Say To Me session id from environment and thread ids", () => {
+  it("builds the T3 worktree Say To Me session id from the thread id", () => {
     expect(
       voiceNotesSessionId(
         "3bae4963-5d72-4221-835b-66e2770e72d0",
         "2572d5ed-a15b-487f-8102-71a350b357ed",
       ),
-    ).toBe("vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed");
+    ).toBe("t3_2572d5ed-a15b-487f-8102-71a350b357ed");
   });
 
   it("renders a loading state before the Say To Me snapshot arrives", () => {
@@ -73,7 +73,7 @@ describe("Say To Me section", () => {
     expect(markup).not.toContain("Preview");
     expect(markup).not.toContain("Listen to short updates from your agents while they work.");
     expect(markup).toContain(
-      'href="https://say.localhost:1311/ses/vo_t3_3bae4963-5d72-4221-835b-66e2770e72d0__2572d5ed-a15b-487f-8102-71a350b357ed"',
+      'href="https://say.localhost:1311/ses/t3_2572d5ed-a15b-487f-8102-71a350b357ed"',
     );
     expect(markup).toContain('target="_blank"');
     expect(markup).toContain("Loading voice notes...");
