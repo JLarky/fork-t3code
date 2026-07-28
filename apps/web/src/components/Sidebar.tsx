@@ -1118,7 +1118,6 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   const { isMobile, setOpenMobile } = useSidebar();
   const markThreadUnread = useUiStateStore((state) => state.markThreadUnread);
   const setProjectExpanded = useUiStateStore((state) => state.setProjectExpanded);
-  const toggleThreadSelection = useThreadSelectionStore((state) => state.toggleThread);
   const rangeSelectTo = useThreadSelectionStore((state) => state.rangeSelectTo);
   const clearSelection = useThreadSelectionStore((state) => state.clearSelection);
   const removeFromSelection = useThreadSelectionStore((state) => state.removeFromSelection);
@@ -1716,7 +1715,11 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
 
       if (isModClick) {
         event.preventDefault();
-        toggleThreadSelection(threadKey);
+        const location = router.buildLocation({
+          to: "/$environmentId/$threadId",
+          params: buildThreadRouteParams(threadRef),
+        });
+        window.open(location.href, "_blank", "noopener,noreferrer");
         return;
       }
 
@@ -1728,7 +1731,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
 
       // Ignore the trailing click of a plain double-click so it doesn't navigate
       // while a double-click is starting an inline rename. Placed after the
-      // modifier branches so cmd/shift selection still processes every click.
+      // modifier branches so cmd/shift clicks still process every click.
       if (isTrailingDoubleClick(event.detail)) {
         return;
       }
@@ -1745,15 +1748,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         params: buildThreadRouteParams(threadRef),
       });
     },
-    [
-      clearSelection,
-      isMobile,
-      rangeSelectTo,
-      router,
-      setOpenMobile,
-      setSelectionAnchor,
-      toggleThreadSelection,
-    ],
+    [clearSelection, isMobile, rangeSelectTo, router, setOpenMobile, setSelectionAnchor],
   );
 
   const handleMultiSelectContextMenu = useCallback(
