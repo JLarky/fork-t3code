@@ -269,8 +269,6 @@ export function VoiceNotesBanner({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const { copyToClipboard: copyLatestExtraMarkdown, isCopied: isLatestExtraMarkdownCopied } =
-    useCopyToClipboard({ target: "extra markdown" });
   const [collapsed, setCollapsed] = useLocalStorage(
     SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
     false,
@@ -548,24 +546,6 @@ export function VoiceNotesBanner({
                 )}
                 {collapsed ? "Expand" : "Collapse"}
               </Button>
-              {collapsed && latestExtraMarkdown !== null ? (
-                <Button
-                  type="button"
-                  size="icon-xs"
-                  variant="ghost"
-                  aria-label={
-                    isLatestExtraMarkdownCopied ? "Copied extra markdown" : "Copy extra markdown"
-                  }
-                  title={isLatestExtraMarkdownCopied ? "Copied" : "Copy extra markdown"}
-                  onClick={() => copyLatestExtraMarkdown(latestExtraMarkdown, undefined)}
-                >
-                  {isLatestExtraMarkdownCopied ? (
-                    <CheckIcon className="size-3 text-primary" />
-                  ) : (
-                    <CopyIcon className="size-3" />
-                  )}
-                </Button>
-              ) : null}
             </div>
           </div>
         </div>
