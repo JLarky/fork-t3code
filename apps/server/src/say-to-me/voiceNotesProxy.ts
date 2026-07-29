@@ -25,10 +25,14 @@ const VOICE_NOTES_ROUTE = "/api/voice-notes/*";
 const VOICE_NOTE_CREATE_ROUTE = "/api/voice-notes/:sessionId";
 const VOICE_NOTE_STATUS_ROUTE = "/api/voice-notes/:sessionId/messages/:messageId/status";
 const VOICE_NOTES_EVENTS_ROUTE = "/api/voice-notes/:sessionId/events";
+const SAY_TO_ME_TIMERS_ROUTE = "/api/say-to-me-timers";
+const SAY_TO_ME_TIMER_ROUTE = "/api/say-to-me-timers/:timerId";
+const SAY_TO_ME_TIMER_ACTION_ROUTE = "/api/say-to-me-timers/:timerId/actions";
 const DEFAULT_SAY_TO_ME_URL = "https://say.local:1355";
 const SESSION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const MESSAGE_ID_PATTERN = /^[0-9]+$/;
 const MESSAGE_STATUS_PATTERN = /^(queued|speaking|played|stopped)$/;
+const TIMER_ID_PATTERN = /^[0-9]+$/;
 
 const authenticateVoiceNotesRequest = Effect.gen(function* () {
   const request = yield* HttpServerRequest.HttpServerRequest;
@@ -77,6 +81,26 @@ export function sayToMeCreateSessionUrl(baseUrl: string): string {
 
 export function sayToMeSettingsUrl(baseUrl: string): string {
   return new URL("/api/settings", `${baseUrl.replace(/\/$/, "")}/`).toString();
+}
+
+export function sayToMeTimersUrl(baseUrl: string, sessionId?: string): string {
+  const url = new URL("/api/jarvis-timers", `${baseUrl.replace(/\/$/, "")}/`);
+  if (sessionId) url.searchParams.set("sessionId", sessionId);
+  return url.toString();
+}
+
+export function sayToMeTimerUrl(baseUrl: string, timerId: string): string {
+  return new URL(
+    `/api/jarvis-timers/${encodeURIComponent(timerId)}`,
+    `${baseUrl.replace(/\/$/, "")}/`,
+  ).toString();
+}
+
+export function sayToMeTimerActionUrl(baseUrl: string, timerId: string): string {
+  return new URL(
+    `/api/jarvis-timers/${encodeURIComponent(timerId)}/actions`,
+    `${baseUrl.replace(/\/$/, "")}/`,
+  ).toString();
 }
 
 export function sayToMeImportSessionUrl(baseUrl: string, sessionId: string): string {
@@ -380,4 +404,140 @@ export const voiceNotesEventsProxyRouteLayer = HttpRouter.add(
       EnvironmentScopeRequiredError: HttpServerRespondable.toResponse,
     }),
   ),
+);
+
+const timerProxyCatchTags = {
+  EnvironmentAuthInvalidError: HttpServerRespondable.toResponse,
+  EnvironmentInternalError: HttpServerRespondable.toResponse,
+  EnvironmentScopeRequiredError: HttpServerRespondable.toResponse,
+} as const;
+
+function timerIdFromRequest(request: HttpServerRequest.HttpServerRequest): string {
+  const path = new URL(request.url, "http://localhost").pathname;
+  const match = path.match(/^\/api\/say-to-me-timers\/([^/]+)(?:\/actions)?$/);
+  return match?.[1] ?? "";
+}
+
+export const sayToMeTimersListProxyRouteLayer = HttpRouter.add(
+  "GET",
+  SAY_TO_ME_TIMERS_ROUTE,
+  Effect.gen(function* () {
+    yield* authenticateVoiceNotesRequest;
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const url = new URL(request.url, "http://localhost");
+    const sessionId = url.searchParams.get("sessionId") ?? "";
+    if (!SESSION_ID_PATTERN.test(sessionId)) {
+      return HttpServerResponse.text("Invalid timer session id", { status: 400 });
+    }
+    const httpClient = yield* HttpClient.HttpClient;
+    const response = yield* httpClient.get(sayToMeTimersUrl(sayToMeBaseUrl(), sessionId)).pipe(
+      Effect.flatMap(HttpClientResponse.filterStatusOk),
+      Effect.flatMap((upstream) => upstream.json),
+      Effect.map((body) => HttpServerResponse.jsonUnsafe(body)),
+      Effect.orElseSucceed(() => HttpServerResponse.text("Unable to load timers", { status: 502 })),
+    );
+    yield* annotateEnvironmentRequest("sayToMeTimersProxy");
+    return response;
+  }).pipe(Effect.catchTags(timerProxyCatchTags)),
+);
+
+export const sayToMeTimersCreateProxyRouteLayer = HttpRouter.add(
+  "POST",
+  SAY_TO_ME_TIMERS_ROUTE,
+  Effect.gen(function* () {
+    yield* authenticateVoiceNotesRequest;
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const body = (yield* request.json) as { readonly sessionId?: unknown };
+    if (typeof body.sessionId !== "string" || !SESSION_ID_PATTERN.test(body.sessionId)) {
+      return HttpServerResponse.text("Invalid timer session id", { status: 400 });
+    }
+    const httpClient = yield* HttpClient.HttpClient;
+    const response = yield* httpClient
+      .post(sayToMeTimersUrl(sayToMeBaseUrl()), { body: HttpBody.jsonUnsafe(body) })
+      .pipe(
+        Effect.flatMap(HttpClientResponse.filterStatusOk),
+        Effect.flatMap((upstream) => upstream.json),
+        Effect.map((body) => HttpServerResponse.jsonUnsafe(body)),
+        Effect.orElseSucceed(() =>
+          HttpServerResponse.text("Unable to create timer", { status: 502 }),
+        ),
+      );
+    yield* annotateEnvironmentRequest("sayToMeTimersProxy");
+    return response;
+  }).pipe(Effect.catchTags(timerProxyCatchTags)),
+);
+
+export const sayToMeTimerUpdateProxyRouteLayer = HttpRouter.add(
+  "PATCH",
+  SAY_TO_ME_TIMER_ROUTE,
+  Effect.gen(function* () {
+    yield* authenticateVoiceNotesRequest;
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const timerId = timerIdFromRequest(request);
+    if (!TIMER_ID_PATTERN.test(timerId))
+      return HttpServerResponse.text("Invalid timer id", { status: 400 });
+    const body = yield* request.json;
+    const httpClient = yield* HttpClient.HttpClient;
+    const response = yield* httpClient
+      .patch(sayToMeTimerUrl(sayToMeBaseUrl(), timerId), { body: HttpBody.jsonUnsafe(body) })
+      .pipe(
+        Effect.flatMap(HttpClientResponse.filterStatusOk),
+        Effect.flatMap((upstream) => upstream.json),
+        Effect.map((body) => HttpServerResponse.jsonUnsafe(body)),
+        Effect.orElseSucceed(() =>
+          HttpServerResponse.text("Unable to update timer", { status: 502 }),
+        ),
+      );
+    yield* annotateEnvironmentRequest("sayToMeTimersProxy");
+    return response;
+  }).pipe(Effect.catchTags(timerProxyCatchTags)),
+);
+
+export const sayToMeTimerActionProxyRouteLayer = HttpRouter.add(
+  "POST",
+  SAY_TO_ME_TIMER_ACTION_ROUTE,
+  Effect.gen(function* () {
+    yield* authenticateVoiceNotesRequest;
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const timerId = timerIdFromRequest(request);
+    if (!TIMER_ID_PATTERN.test(timerId))
+      return HttpServerResponse.text("Invalid timer id", { status: 400 });
+    const body = yield* request.json;
+    const httpClient = yield* HttpClient.HttpClient;
+    const response = yield* httpClient
+      .post(sayToMeTimerActionUrl(sayToMeBaseUrl(), timerId), { body: HttpBody.jsonUnsafe(body) })
+      .pipe(
+        Effect.flatMap(HttpClientResponse.filterStatusOk),
+        Effect.flatMap((upstream) => upstream.json),
+        Effect.map((body) => HttpServerResponse.jsonUnsafe(body)),
+        Effect.orElseSucceed(() =>
+          HttpServerResponse.text("Unable to act on timer", { status: 502 }),
+        ),
+      );
+    yield* annotateEnvironmentRequest("sayToMeTimersProxy");
+    return response;
+  }).pipe(Effect.catchTags(timerProxyCatchTags)),
+);
+
+export const sayToMeTimerDeleteProxyRouteLayer = HttpRouter.add(
+  "DELETE",
+  SAY_TO_ME_TIMER_ROUTE,
+  Effect.gen(function* () {
+    yield* authenticateVoiceNotesRequest;
+    const request = yield* HttpServerRequest.HttpServerRequest;
+    const timerId = timerIdFromRequest(request);
+    if (!TIMER_ID_PATTERN.test(timerId))
+      return HttpServerResponse.text("Invalid timer id", { status: 400 });
+    const httpClient = yield* HttpClient.HttpClient;
+    const response = yield* httpClient.del(sayToMeTimerUrl(sayToMeBaseUrl(), timerId)).pipe(
+      Effect.flatMap(HttpClientResponse.filterStatusOk),
+      Effect.flatMap((upstream) => upstream.json),
+      Effect.map((body) => HttpServerResponse.jsonUnsafe(body)),
+      Effect.orElseSucceed(() =>
+        HttpServerResponse.text("Unable to delete timer", { status: 502 }),
+      ),
+    );
+    yield* annotateEnvironmentRequest("sayToMeTimersProxy");
+    return response;
+  }).pipe(Effect.catchTags(timerProxyCatchTags)),
 );
