@@ -92,6 +92,7 @@ describe("Say To Me section", () => {
     expect(sayToMeBannerSectionClass(true)).toContain("max-w-[min(30%,18rem)]");
     expect(sayToMeBannerSectionClass(true, true)).toContain("max-w-[min(80vw,32rem)]");
     expect(sayToMeBannerSectionClass(true, true)).toContain("pointer-events-auto");
+    expect(sayToMeBannerSectionClass(true, false, true)).toContain("pointer-events-auto");
   });
 
   it("restores the collapsed banner from local storage", () => {
