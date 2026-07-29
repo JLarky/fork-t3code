@@ -35,6 +35,14 @@ function audioContextConstructor(): typeof AudioContext | undefined {
   return window.AudioContext ?? extendedWindow.webkitAudioContext;
 }
 
+function navigatorAutoplayPolicy(): ((type: string) => string) | undefined {
+  if (typeof navigator === "undefined") return undefined;
+  const extendedNavigator = navigator as Navigator & {
+    getAutoplayPolicy?: (type: string) => string;
+  };
+  return extendedNavigator.getAutoplayPolicy?.bind(navigator);
+}
+
 /**
  * Builds a mono 16-bit PCM WAV data URL. `amplitudeAt` receives the sample
  * index and its time offset in seconds, and returns amplitude in [-1, 1].
@@ -248,6 +256,34 @@ async function play(ding: Ding, volumeScale: number): Promise<boolean> {
  */
 export function playSendDing({ volumeScale = 1 } = {}): Promise<boolean> {
   return play(sendDing, volumeScale);
+}
+
+/**
+ * Primes the browser's audio element and Web Audio context from a user
+ * gesture. This does not emit an audible ding; it only unlocks later idle
+ * notifications.
+ */
+export async function warmSendDing(): Promise<boolean> {
+  const audio = prepareAudio(sendDing);
+  const AudioContextConstructor = audioContextConstructor();
+  if (!AudioContextConstructor) return Boolean(audio);
+
+  try {
+    if (!sharedContext || sharedContext.state === "closed") {
+      sharedContext = new AudioContextConstructor();
+    }
+    if (sharedContext.state === "suspended") await sharedContext.resume();
+    return true;
+  } catch {
+    return Boolean(audio);
+  }
+}
+
+/** Returns whether the browser reports an autoplay permission for audio. */
+export function hasAutoplayPermission(): boolean {
+  const getAutoplayPolicy = navigatorAutoplayPolicy();
+  if (!getAutoplayPolicy) return false;
+  return ["mediaelement", "audiocontext"].some((type) => getAutoplayPolicy(type) === "allowed");
 }
 
 /**
