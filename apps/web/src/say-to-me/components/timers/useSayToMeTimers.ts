@@ -8,17 +8,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { appAtomRegistry } from "../../../rpc/atomRegistry";
 
-export type SayToMeTimer = {
-  readonly id: number;
-  readonly title: string;
-  readonly message: string;
-  readonly status: string;
-  readonly nextFireAt: number;
-  readonly intervalMs: number | null;
-  readonly lastFiredAt?: number | null | undefined;
-  readonly lastError?: string | null | undefined;
-};
-
 const SayToMeTimerSchema = Schema.Struct({
   id: Schema.Number,
   title: Schema.String,
@@ -29,6 +18,8 @@ const SayToMeTimerSchema = Schema.Struct({
   lastFiredAt: Schema.optional(Schema.NullOr(Schema.Number)),
   lastError: Schema.optional(Schema.NullOr(Schema.String)),
 });
+
+export type SayToMeTimer = Schema.Schema.Type<typeof SayToMeTimerSchema>;
 
 const SayToMeTimersPayloadSchema = Schema.Struct({
   timers: Schema.optional(Schema.Array(SayToMeTimerSchema)),
