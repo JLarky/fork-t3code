@@ -1,0 +1,74 @@
+import { useAtomValue } from "@effect/atom-react";
+import * as Cause from "effect/Cause";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { appAtomRegistry } from "../../../rpc/atomRegistry";
+
+export type SayToMeTimer = {
+  readonly id: number;
+  readonly title: string;
+  readonly message: string;
+  readonly status: string;
+  readonly nextFireAt: number;
+  readonly intervalMs: number | null;
+  readonly lastFiredAt?: number | null;
+  readonly lastError?: string | null;
+};
+
+type SayToMeTimersPayload = { readonly timers?: ReadonlyArray<SayToMeTimer> };
+
+function timersAtom(sessionId: string) {
+  return Atom.make(Effect.promise(() => fetchSayToMeTimers(sessionId))).pipe(
+    Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
+    Atom.setIdleTTL(5 * 60_000),
+    Atom.withLabel(`say-to-me:timers:${sessionId}`),
+  );
+}
+
+async function fetchSayToMeTimers(sessionId: string): Promise<ReadonlyArray<SayToMeTimer>> {
+  const response = await fetch(`/api/say-to-me-timers?sessionId=${encodeURIComponent(sessionId)}`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Unable to load Say To Me timers.");
+  const payload = (await response.json()) as SayToMeTimersPayload;
+  return Array.isArray(payload.timers) ? payload.timers : [];
+}
+
+export function useSayToMeTimers(sessionId: string) {
+  const atom = useMemo(() => timersAtom(sessionId), [sessionId]);
+  const result = useAtomValue(atom);
+  const refresh = useCallback(() => appAtomRegistry.refresh(atom), [atom]);
+  const [now, setNow] = useState(() => Date.now());
+  const timers = Option.getOrElse(
+    AsyncResult.value(result),
+    () => [] as ReadonlyArray<SayToMeTimer>,
+  );
+  const hasClock = timers.some((timer) => timer.status === "active" || timer.status === "paused");
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      refresh();
+      setNow(Date.now());
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!hasClock) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, [hasClock]);
+
+  const error = result._tag === "Failure" ? Cause.squash(result.cause) : null;
+  return {
+    timers,
+    now,
+    error:
+      error instanceof Error ? error.message : error ? "Unable to load Say To Me timers." : null,
+    isPending: result.waiting,
+    refresh,
+  };
+}

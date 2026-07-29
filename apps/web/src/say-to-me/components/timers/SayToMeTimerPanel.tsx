@@ -2,17 +2,9 @@ import { useState } from "react";
 
 import { cn } from "~/lib/utils";
 import { Button } from "../../../components/ui/button";
+import type { SayToMeTimer } from "./useSayToMeTimers";
 
-export type SayToMeTimer = {
-  readonly id: number;
-  readonly title: string;
-  readonly message: string;
-  readonly status: string;
-  readonly nextFireAt: number;
-  readonly intervalMs: number | null;
-  readonly lastFiredAt?: number | null;
-  readonly lastError?: string | null;
-};
+export type { SayToMeTimer } from "./useSayToMeTimers";
 
 export function timerRelativeLabel(nextFireAt: number, now: number): string {
   const seconds = Math.round((nextFireAt - now) / 1000);

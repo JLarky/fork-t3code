@@ -16,7 +16,8 @@ import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import ChatMarkdown from "../../../components/ChatMarkdown";
 import { Button } from "../../../components/ui/button";
-import { SayToMeTimerPanel, timerRelativeLabel, type SayToMeTimer } from "./SayToMeTimerPanel";
+import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPanel";
+import { useSayToMeTimers } from "../timers/useSayToMeTimers";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
 import { voiceNotesSessionId } from "../../voiceSessionId";
@@ -383,9 +384,8 @@ export function VoiceNotesBanner({
   const [sessionState, setSessionState] = useState<SessionState>("loading");
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
-  const [timers, setTimers] = useState<ReadonlyArray<SayToMeTimer>>([]);
   const [timersOpen, setTimersOpen] = useState(false);
-  const [timerNow, setTimerNow] = useState(() => Date.now());
+  const { timers, now: timerNow, refresh: refreshTimers } = useSayToMeTimers(sessionId);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useLocalStorage(
     SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
@@ -397,26 +397,6 @@ export function VoiceNotesBanner({
   const autoplayLockRef = useRef(false);
   const autoplayClaimedIdsRef = useRef<Set<string>>(new Set());
   const revisionRef = useRef(-1);
-
-  const refreshTimers = () => {
-    void fetch(`/api/say-to-me-timers?sessionId=${encodeURIComponent(sessionId)}`, {
-      credentials: "include",
-    })
-      .then(async (response) =>
-        response.ok ? ((await response.json()) as { timers?: SayToMeTimer[] }) : null,
-      )
-      .then((payload) => payload && setTimers(Array.isArray(payload.timers) ? payload.timers : []))
-      .catch(() => undefined);
-  };
-
-  useEffect(() => {
-    refreshTimers();
-    const refreshInterval = window.setInterval(() => {
-      setTimerNow(Date.now());
-      refreshTimers();
-    }, 15_000);
-    return () => window.clearInterval(refreshInterval);
-  }, [sessionId]);
 
   useEffect(() => {
     return () => {
