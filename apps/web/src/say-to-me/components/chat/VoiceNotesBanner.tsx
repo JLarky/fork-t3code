@@ -23,6 +23,7 @@ export { voiceNotesSessionId };
 
 export const SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY = "t3code:say-to-me-banner-collapsed:v1";
 const CollapsedSchema = Schema.Boolean;
+const SAY_TO_ME_USAGE_PROMPT = "Tell your agent how to use Say To Me";
 
 /** Upper bound on how long a single spoken note may hold the audio queue. */
 const SPEECH_TIMEOUT_MS = 120_000;
@@ -46,6 +47,7 @@ type VoiceNote = {
   readonly extraMarkdown: string | null;
   readonly status: string;
   readonly attachments: ReadonlyArray<SayToMeAttachment>;
+  readonly sessions: ReadonlyArray<SayToMeSession>;
 };
 
 type SayToMeAttachment = {
@@ -63,6 +65,18 @@ type SayToMeMessage = {
   readonly status: string;
   readonly createdAt: string;
   readonly attachments?: ReadonlyArray<SayToMeAttachment>;
+  readonly sessions?: ReadonlyArray<SayToMeSession>;
+};
+
+type SayToMeSession = {
+  readonly id: string;
+  readonly alias?: string | null;
+  readonly title?: string | null;
+  readonly summary?: string | null;
+  readonly summaryUpdatedAt?: string | null;
+  readonly waitingState?: string | null;
+  readonly latestActivity?: string | null;
+  readonly messageCount?: number | null;
 };
 
 type SayToMeMessagesPayload = {
@@ -243,6 +257,100 @@ function VoiceNoteExtraMarkdown({
   );
 }
 
+function SayToMeUsagePromptButton({ onClick }: { readonly onClick: () => void }) {
+  return (
+    <Button size="xs" variant="outline" onClick={onClick}>
+      {SAY_TO_ME_USAGE_PROMPT}
+    </Button>
+  );
+}
+
+function sessionDisplayName(session: SayToMeSession): string {
+  return session.alias?.trim() || session.title?.trim() || session.id;
+}
+
+function sessionWaitingLabel(waitingState: string | null | undefined): string {
+  switch (waitingState) {
+    case "working":
+      return "Working";
+    case "needs_answer":
+      return "Needs answer";
+    case "can_continue":
+      return "Idle";
+    default:
+      return waitingState?.replaceAll("_", " ") || "Unknown";
+  }
+}
+
+function sessionWaitingClass(waitingState: string | null | undefined): string {
+  switch (waitingState) {
+    case "working":
+      return "bg-amber-500/15 text-amber-700 dark:text-amber-300";
+    case "needs_answer":
+      return "bg-sky-500/15 text-sky-700 dark:text-sky-300";
+    case "can_continue":
+      return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+}
+
+function VoiceNoteSessionCard({ session }: { readonly session: SayToMeSession }) {
+  const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "session mention" });
+  const mention = session.alias
+    ? `@session(${session.id}, ${session.alias})`
+    : `@session(${session.id})`;
+  const latestActivity = session.latestActivity ?? session.summaryUpdatedAt;
+
+  return (
+    <div className="mt-2 rounded-xl border border-border/70 bg-background/70 p-2.5 short:mt-1 short:rounded-lg short:p-1.5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <strong className="min-w-0 truncate text-sm short:text-[11px]">
+          {sessionDisplayName(session)}
+        </strong>
+        <span
+          className={cn(
+            "rounded-full px-1.5 py-0.5 font-medium text-[10px] uppercase tracking-wide short:text-[9px]",
+            sessionWaitingClass(session.waitingState),
+          )}
+        >
+          {sessionWaitingLabel(session.waitingState)}
+        </span>
+        {latestActivity ? (
+          <span className="text-muted-foreground text-xs short:text-[10px]">
+            Latest: {formatSayToMeTimestamp(latestActivity)}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5 short:mt-1 short:gap-1">
+        <a
+          href={sayToMeSessionUrl(session.id)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-7 items-center rounded-md border border-border bg-background px-2 text-xs font-medium hover:bg-muted short:h-6 short:px-1.5 short:text-[10px]"
+        >
+          Open
+        </a>
+        <Button size="xs" variant="outline" onClick={() => copyToClipboard(mention, undefined)}>
+          {isCopied ? "Copied" : "Copy mention"}
+        </Button>
+      </div>
+      {session.summary ? (
+        <p className="mt-2 line-clamp-2 text-muted-foreground text-xs short:mt-1 short:text-[10px]">
+          Last update: {session.summary.replace(/^Last update:\s*/i, "")}
+        </p>
+      ) : null}
+      <details className="mt-1.5 text-muted-foreground text-xs short:mt-1 short:text-[10px]">
+        <summary className="cursor-pointer font-medium hover:text-foreground">Details</summary>
+        <p className="mt-1 break-all">{session.id}</p>
+        {session.messageCount !== null && session.messageCount !== undefined ? (
+          <p>{session.messageCount} messages</p>
+        ) : null}
+      </details>
+    </div>
+  );
+}
+
 /** Notes are stored newest-first; the speaker icon replays that head entry when idle. */
 export function mostRecentVoiceNote<T>(notes: ReadonlyArray<T>): T | null {
   return notes[0] ?? null;
@@ -315,6 +423,7 @@ export function VoiceNotesBanner({
             extraMarkdown: message.extraMarkdown ?? null,
             status: message.status,
             attachments: message.attachments ?? [],
+            sessions: message.sessions ?? [],
           })),
       );
     };
@@ -581,9 +690,7 @@ export function VoiceNotesBanner({
                 {isCreatingSession ? "Creating..." : "Click here to start using Say To Me"}
               </Button>
             ) : (
-              <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
-                Tell your agent how to use Say To Me
-              </Button>
+              <SayToMeUsagePromptButton onClick={onInsertUsagePrompt} />
             )}
           </div>
         ) : null}
@@ -630,9 +737,7 @@ export function VoiceNotesBanner({
                 <p className="text-muted-foreground text-sm short:text-[11px]">
                   No voice notes yet.
                 </p>
-                <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
-                  Tell your agent how to use Say To Me
-                </Button>
+                <SayToMeUsagePromptButton onClick={onInsertUsagePrompt} />
               </div>
             ) : (
               notes.map((note) => {
@@ -670,6 +775,9 @@ export function VoiceNotesBanner({
                         {typeof note.extraMarkdown === "string" && note.extraMarkdown.trim() ? (
                           <VoiceNoteExtraMarkdown markdown={note.extraMarkdown} />
                         ) : null}
+                        {note.sessions.map((session) => (
+                          <VoiceNoteSessionCard key={session.id} session={session} />
+                        ))}
                         {note.attachments.length > 0 ? (
                           <div className="mt-2 flex flex-wrap gap-2 short:mt-1 short:gap-1.5">
                             {note.attachments.map((attachment) => {
