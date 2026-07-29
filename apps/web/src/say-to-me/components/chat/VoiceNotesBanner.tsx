@@ -578,7 +578,7 @@ export function VoiceNotesBanner({
                 disabled={isCreatingSession}
                 onClick={createSession}
               >
-                {isCreatingSession ? "Creating..." : "Click here to start using Say To Me"}
+                {isCreatingSession ? "Creating..." : "Create voice session"}
               </Button>
             ) : (
               <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
