@@ -519,7 +519,7 @@ export function VoiceNotesBanner({
           >
             <Volume2Icon className="size-4 short:size-2" aria-hidden />
           </button>
-          <div className={cn("min-w-0", !collapsed && "flex-1")}>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3 short:gap-1.5">
               <h2 className="font-medium text-sm short:text-[11px]">
                 <a
