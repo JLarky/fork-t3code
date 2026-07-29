@@ -162,12 +162,17 @@ export function sayToMeTitleUrl(sessionId: string, sessionState: SessionState): 
   return sessionState === "missing" ? SAY_TO_ME_UI_URL : sayToMeSessionUrl(sessionId);
 }
 
-export function sayToMeBannerSectionClass(collapsed: boolean, hasExtraMarkdown = false): string {
+export function sayToMeBannerSectionClass(
+  collapsed: boolean,
+  hasExtraMarkdown = false,
+  hasCollapsedAction = false,
+): string {
+  const hasInteractiveCollapsedContent = hasExtraMarkdown || hasCollapsedAction;
   return collapsed
     ? cn(
         "absolute top-2 right-[10px] z-30 w-max short:top-1",
-        hasExtraMarkdown ? "pointer-events-auto" : "pointer-events-none",
-        hasExtraMarkdown ? "max-w-[min(80vw,32rem)]" : "max-w-[min(30%,18rem)]",
+        hasInteractiveCollapsedContent ? "pointer-events-auto" : "pointer-events-none",
+        hasInteractiveCollapsedContent ? "max-w-[min(80vw,32rem)]" : "max-w-[min(30%,18rem)]",
       )
     : "mx-auto w-[min(48rem,calc(100%-2rem))] shrink-0 py-3 short:py-1.5";
 }
@@ -482,13 +487,23 @@ export function VoiceNotesBanner({
   }, [hasLoadedRemoteNotes, notes, playingId]);
 
   const latestExtraMarkdown = latestVoiceNoteExtraMarkdown(notes);
+  const collapsedAction =
+    sessionState === "missing"
+      ? "create-session"
+      : sessionState === "ready" && hasLoadedRemoteNotes && notes.length === 0
+        ? "usage-prompt"
+        : null;
 
   return (
     <section
       aria-label="Say To Me"
       data-testid="say-to-me-banner"
       data-collapsed={collapsed ? "true" : "false"}
-      className={sayToMeBannerSectionClass(collapsed, latestExtraMarkdown !== null)}
+      className={sayToMeBannerSectionClass(
+        collapsed,
+        latestExtraMarkdown !== null,
+        collapsedAction !== null,
+      )}
     >
       <div
         className={cn(
@@ -552,6 +567,25 @@ export function VoiceNotesBanner({
 
         {collapsed && latestExtraMarkdown !== null ? (
           <VoiceNoteExtraMarkdown markdown={latestExtraMarkdown} compact />
+        ) : null}
+
+        {collapsed && collapsedAction !== null ? (
+          <div className="mt-2 flex justify-end short:mt-1">
+            {collapsedAction === "create-session" ? (
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={isCreatingSession}
+                onClick={createSession}
+              >
+                {isCreatingSession ? "Creating..." : "Create voice session"}
+              </Button>
+            ) : (
+              <Button size="xs" variant="outline" onClick={onInsertUsagePrompt}>
+                Tell your agent how to use Say To Me
+              </Button>
+            )}
+          </div>
         ) : null}
 
         {collapsed ? null : (
