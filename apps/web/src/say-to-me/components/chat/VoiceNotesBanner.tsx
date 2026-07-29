@@ -11,6 +11,7 @@ import {
 
 import { cn } from "~/lib/utils";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import ChatMarkdown from "../../../components/ChatMarkdown";
 import { Button } from "../../../components/ui/button";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
@@ -40,6 +41,7 @@ type VoiceNote = {
   readonly author: string;
   readonly time: string;
   readonly text: string;
+  readonly extraMarkdown: string | null;
   readonly status: string;
   readonly attachments: ReadonlyArray<SayToMeAttachment>;
 };
@@ -55,6 +57,7 @@ type SayToMeMessage = {
   readonly id: number;
   readonly author: string;
   readonly text: string;
+  readonly extraMarkdown?: string | null;
   readonly status: string;
   readonly createdAt: string;
   readonly attachments?: ReadonlyArray<SayToMeAttachment>;
@@ -250,6 +253,7 @@ export function VoiceNotesBanner({
             author: message.author,
             time: message.createdAt,
             text: message.text,
+            extraMarkdown: message.extraMarkdown ?? null,
             status: message.status,
             attachments: message.attachments ?? [],
           })),
@@ -569,6 +573,11 @@ export function VoiceNotesBanner({
                         <p className="mt-1 text-sm leading-5 short:mt-0.5 short:text-[11px] short:leading-4">
                           {note.text}
                         </p>
+                        {typeof note.extraMarkdown === "string" && note.extraMarkdown.trim() ? (
+                          <div className="mt-2 border-t border-border/50 pt-2 text-sm short:mt-1 short:pt-1 short:text-[11px]">
+                            <ChatMarkdown text={note.extraMarkdown} cwd={undefined} />
+                          </div>
+                        ) : null}
                         {note.attachments.length > 0 ? (
                           <div className="mt-2 flex flex-wrap gap-2 short:mt-1 short:gap-1.5">
                             {note.attachments.map((attachment) => {
