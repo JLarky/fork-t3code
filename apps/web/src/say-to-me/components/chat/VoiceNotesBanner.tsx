@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as Schema from "effect/Schema";
 import {
+  AlarmClockIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -15,6 +16,8 @@ import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import ChatMarkdown from "../../../components/ChatMarkdown";
 import { Button } from "../../../components/ui/button";
+import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPanel";
+import { useSayToMeTimers } from "../timers/useSayToMeTimers";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
 import { voiceNotesSessionId } from "../../voiceSessionId";
@@ -381,6 +384,8 @@ export function VoiceNotesBanner({
   const [sessionState, setSessionState] = useState<SessionState>("loading");
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [timersOpen, setTimersOpen] = useState(false);
+  const { timers, now: timerNow, refresh: refreshTimers } = useSayToMeTimers(sessionId);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useLocalStorage(
     SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
@@ -596,6 +601,12 @@ export function VoiceNotesBanner({
   }, [hasLoadedRemoteNotes, notes, playingId]);
 
   const latestExtraMarkdown = latestVoiceNoteExtraMarkdown(notes);
+  const activeTimers = timers.filter(
+    (timer) => timer.status === "active" || timer.status === "paused",
+  );
+  const nextTimer = activeTimers
+    .slice()
+    .sort((left, right) => left.nextFireAt - right.nextFireAt)[0];
   const collapsedAction =
     sessionState === "missing"
       ? "create-session"
@@ -611,7 +622,7 @@ export function VoiceNotesBanner({
       className={sayToMeBannerSectionClass(
         collapsed,
         latestExtraMarkdown !== null,
-        collapsedAction !== null,
+        collapsedAction !== null || activeTimers.length > 0 || timersOpen,
       )}
     >
       <div
@@ -655,24 +666,64 @@ export function VoiceNotesBanner({
                   Say To Me
                 </a>
               </h2>
-              <Button
-                size="xs"
-                variant="ghost"
-                aria-expanded={!collapsed}
-                aria-label={collapsed ? "Expand Say To Me" : "Collapse Say To Me"}
-                className="h-6 shrink-0 gap-0.5 px-1.5 text-xs short:h-5 short:text-[9px]"
-                onClick={() => setCollapsed((value) => !value)}
-              >
-                {collapsed ? (
-                  <ChevronDownIcon className="size-3 short:size-2.5" aria-hidden />
-                ) : (
-                  <ChevronUpIcon className="size-3 short:size-2.5" aria-hidden />
-                )}
-                {collapsed ? "Expand" : "Collapse"}
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                {!collapsed ? (
+                  <Button
+                    size="icon-xs"
+                    variant="ghost"
+                    aria-label="Show timers"
+                    title="Show timers"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    onClick={() => setTimersOpen((value) => !value)}
+                  >
+                    <AlarmClockIcon className="size-3.5 short:size-3" aria-hidden />
+                    {activeTimers.length > 0 ? (
+                      <span className="sr-only">{activeTimers.length} active</span>
+                    ) : null}
+                  </Button>
+                ) : null}
+                {/* Keep Expand/Collapse as the rightmost header control. */}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-expanded={!collapsed}
+                  aria-label={collapsed ? "Expand Say To Me" : "Collapse Say To Me"}
+                  className="h-6 shrink-0 gap-0.5 px-1.5 text-xs short:h-5 short:text-[9px]"
+                  onClick={() => setCollapsed((value) => !value)}
+                >
+                  {collapsed ? (
+                    <ChevronDownIcon className="size-3 short:size-2.5" aria-hidden />
+                  ) : (
+                    <ChevronUpIcon className="size-3 short:size-2.5" aria-hidden />
+                  )}
+                  {collapsed ? "Expand" : "Collapse"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
+
+        {nextTimer ? (
+          <button
+            type="button"
+            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/70 bg-muted/45 px-2.5 py-1 text-left text-foreground text-xs hover:bg-muted short:mt-1 short:px-1.5 short:py-0.5 short:text-[10px]"
+            onClick={() => setTimersOpen((value) => !value)}
+          >
+            <AlarmClockIcon className="size-3" aria-hidden />
+            <span className="truncate">
+              {nextTimer.title} · {timerRelativeLabel(nextTimer.nextFireAt, timerNow)}
+            </span>
+          </button>
+        ) : null}
+
+        {timersOpen ? (
+          <SayToMeTimerPanel
+            sessionId={sessionId}
+            timers={timers}
+            now={timerNow}
+            onRefresh={refreshTimers}
+          />
+        ) : null}
 
         {collapsed && latestExtraMarkdown !== null ? (
           <VoiceNoteExtraMarkdown markdown={latestExtraMarkdown} compact />
@@ -696,7 +747,12 @@ export function VoiceNotesBanner({
         ) : null}
 
         {collapsed ? null : (
-          <div className="max-h-64 space-y-2 overflow-y-auto short:max-h-32 short:space-y-1">
+          <div
+            className={cn(
+              "max-h-64 space-y-2 overflow-y-auto short:max-h-32 short:space-y-1",
+              (nextTimer || timersOpen) && "mt-3",
+            )}
+          >
             {sessionState === "missing" ? (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/55 px-3 py-2.5 short:gap-1.5 short:rounded-lg short:px-1.5 short:py-1.5">
                 <p className="text-muted-foreground text-sm short:text-[11px]">
