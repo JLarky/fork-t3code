@@ -4,12 +4,14 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  CopyIcon,
   PlayIcon,
   SquareIcon,
   Volume2Icon,
 } from "lucide-react";
 
 import { cn } from "~/lib/utils";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
 import ChatMarkdown from "../../../components/ChatMarkdown";
 import { Button } from "../../../components/ui/button";
@@ -189,6 +191,30 @@ export function claimQueuedNotesForStopAll(
     stoppedIds.push(note.id);
   }
   return stoppedIds;
+}
+
+function VoiceNoteExtraMarkdown({ markdown }: { readonly markdown: string }) {
+  const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "extra markdown" });
+
+  return (
+    <div
+      data-testid="say-to-me-extra-markdown"
+      className="relative mt-2 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 short:mt-1 short:rounded-lg short:px-1.5 short:py-1.5"
+    >
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        aria-label={isCopied ? "Copied extra markdown" : "Copy extra markdown"}
+        title={isCopied ? "Copied" : "Copy extra markdown"}
+        className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-foreground short:top-1 short:right-1"
+        onClick={() => copyToClipboard(markdown, undefined)}
+      >
+        {isCopied ? <CheckIcon className="size-3 text-primary" /> : <CopyIcon className="size-3" />}
+      </Button>
+      <ChatMarkdown text={markdown} cwd={undefined} className="pr-7" />
+    </div>
+  );
 }
 
 /** Notes are stored newest-first; the speaker icon replays that head entry when idle. */
@@ -574,9 +600,7 @@ export function VoiceNotesBanner({
                           {note.text}
                         </p>
                         {typeof note.extraMarkdown === "string" && note.extraMarkdown.trim() ? (
-                          <div className="mt-2 border-t border-border/50 pt-2 text-sm short:mt-1 short:pt-1 short:text-[11px]">
-                            <ChatMarkdown text={note.extraMarkdown} cwd={undefined} />
-                          </div>
+                          <VoiceNoteExtraMarkdown markdown={note.extraMarkdown} />
                         ) : null}
                         {note.attachments.length > 0 ? (
                           <div className="mt-2 flex flex-wrap gap-2 short:mt-1 short:gap-1.5">
