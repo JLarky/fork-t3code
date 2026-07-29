@@ -162,9 +162,13 @@ export function sayToMeTitleUrl(sessionId: string, sessionState: SessionState): 
   return sessionState === "missing" ? SAY_TO_ME_UI_URL : sayToMeSessionUrl(sessionId);
 }
 
-export function sayToMeBannerSectionClass(collapsed: boolean): string {
+export function sayToMeBannerSectionClass(collapsed: boolean, hasExtraMarkdown = false): string {
   return collapsed
-    ? "pointer-events-none absolute top-2 right-[10px] z-30 w-max max-w-[min(30%,18rem)] short:top-1"
+    ? cn(
+        "absolute top-2 right-[10px] z-30 w-max short:top-1",
+        hasExtraMarkdown ? "pointer-events-auto" : "pointer-events-none",
+        hasExtraMarkdown ? "max-w-[min(80vw,32rem)]" : "max-w-[min(30%,18rem)]",
+      )
     : "mx-auto w-[min(48rem,calc(100%-2rem))] shrink-0 py-3 short:py-1.5";
 }
 
@@ -193,26 +197,43 @@ export function claimQueuedNotesForStopAll(
   return stoppedIds;
 }
 
-function VoiceNoteExtraMarkdown({ markdown }: { readonly markdown: string }) {
+function VoiceNoteExtraMarkdown({
+  markdown,
+  compact = false,
+}: {
+  readonly markdown: string;
+  readonly compact?: boolean;
+}) {
   const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "extra markdown" });
 
   return (
     <div
       data-testid="say-to-me-extra-markdown"
-      className="relative mt-2 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 short:mt-1 short:rounded-lg short:px-1.5 short:py-1.5"
+      className={cn(
+        "mt-2 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 short:mt-1 short:rounded-lg short:px-1.5 short:py-1.5",
+        compact && "max-h-36 overflow-y-auto overscroll-contain short:max-h-28",
+      )}
     >
-      <Button
-        type="button"
-        size="icon-xs"
-        variant="ghost"
-        aria-label={isCopied ? "Copied extra markdown" : "Copy extra markdown"}
-        title={isCopied ? "Copied" : "Copy extra markdown"}
-        className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-foreground short:top-1 short:right-1"
-        onClick={() => copyToClipboard(markdown, undefined)}
-      >
-        {isCopied ? <CheckIcon className="size-3 text-primary" /> : <CopyIcon className="size-3" />}
-      </Button>
-      <ChatMarkdown text={markdown} cwd={undefined} className="pr-7" />
+      {compact ? null : (
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label={isCopied ? "Copied extra markdown" : "Copy extra markdown"}
+            title={isCopied ? "Copied" : "Copy extra markdown"}
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => copyToClipboard(markdown, undefined)}
+          >
+            {isCopied ? (
+              <CheckIcon className="size-3 text-primary" />
+            ) : (
+              <CopyIcon className="size-3" />
+            )}
+          </Button>
+        </div>
+      )}
+      <ChatMarkdown text={markdown} cwd={undefined} className="min-w-0" />
     </div>
   );
 }
@@ -220,6 +241,13 @@ function VoiceNoteExtraMarkdown({ markdown }: { readonly markdown: string }) {
 /** Notes are stored newest-first; the speaker icon replays that head entry when idle. */
 export function mostRecentVoiceNote<T>(notes: ReadonlyArray<T>): T | null {
   return notes[0] ?? null;
+}
+
+export function latestVoiceNoteExtraMarkdown(
+  notes: ReadonlyArray<Pick<VoiceNote, "extraMarkdown">>,
+): string | null {
+  const markdown = notes[0]?.extraMarkdown;
+  return typeof markdown === "string" && markdown.trim() ? markdown : null;
 }
 
 type VoiceNotesBannerProps = {
@@ -453,12 +481,14 @@ export function VoiceNotesBanner({
     autoplayLockRef.current = true;
   }, [hasLoadedRemoteNotes, notes, playingId]);
 
+  const latestExtraMarkdown = latestVoiceNoteExtraMarkdown(notes);
+
   return (
     <section
       aria-label="Say To Me"
       data-testid="say-to-me-banner"
       data-collapsed={collapsed ? "true" : "false"}
-      className={sayToMeBannerSectionClass(collapsed)}
+      className={sayToMeBannerSectionClass(collapsed, latestExtraMarkdown !== null)}
     >
       <div
         className={cn(
@@ -489,7 +519,7 @@ export function VoiceNotesBanner({
           >
             <Volume2Icon className="size-4 short:size-2" aria-hidden />
           </button>
-          <div className={cn("min-w-0", !collapsed && "flex-1")}>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3 short:gap-1.5">
               <h2 className="font-medium text-sm short:text-[11px]">
                 <a
@@ -519,6 +549,10 @@ export function VoiceNotesBanner({
             </div>
           </div>
         </div>
+
+        {collapsed && latestExtraMarkdown !== null ? (
+          <VoiceNoteExtraMarkdown markdown={latestExtraMarkdown} compact />
+        ) : null}
 
         {collapsed ? null : (
           <div className="max-h-64 space-y-2 overflow-y-auto short:max-h-32 short:space-y-1">

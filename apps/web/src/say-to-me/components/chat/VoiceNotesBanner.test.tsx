@@ -7,6 +7,7 @@ import {
   claimVoiceNoteForAutoplay,
   formatSayToMeTimestamp,
   imageAttachmentThumbnail,
+  latestVoiceNoteExtraMarkdown,
   mostRecentVoiceNote,
   normalizeSayToMeTimestamp,
   SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
@@ -89,6 +90,8 @@ describe("Say To Me section", () => {
     expect(sayToMeBannerSectionClass(true)).toContain("absolute top-2 right-[10px]");
     expect(sayToMeBannerSectionClass(true)).toContain("w-max");
     expect(sayToMeBannerSectionClass(true)).toContain("max-w-[min(30%,18rem)]");
+    expect(sayToMeBannerSectionClass(true, true)).toContain("max-w-[min(80vw,32rem)]");
+    expect(sayToMeBannerSectionClass(true, true)).toContain("pointer-events-auto");
   });
 
   it("restores the collapsed banner from local storage", () => {
@@ -145,6 +148,13 @@ describe("Say To Me section", () => {
   it("picks the newest note for idle speaker-icon playback", () => {
     expect(mostRecentVoiceNote([])).toBeNull();
     expect(mostRecentVoiceNote([{ id: "newer" }, { id: "older" }])).toEqual({ id: "newer" });
+  });
+
+  it("only surfaces extra markdown from the newest note in the collapsed banner", () => {
+    expect(
+      latestVoiceNoteExtraMarkdown([{ extraMarkdown: "## Latest" }, { extraMarkdown: "## Older" }]),
+    ).toBe("## Latest");
+    expect(latestVoiceNoteExtraMarkdown([{ extraMarkdown: null }])).toBeNull();
   });
 
   it("returns thumbnails for image attachments", () => {
