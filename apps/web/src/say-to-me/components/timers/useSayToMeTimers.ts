@@ -2,6 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -14,15 +15,28 @@ export type SayToMeTimer = {
   readonly status: string;
   readonly nextFireAt: number;
   readonly intervalMs: number | null;
-  readonly lastFiredAt?: number | null;
-  readonly lastError?: string | null;
+  readonly lastFiredAt?: number | null | undefined;
+  readonly lastError?: string | null | undefined;
 };
 
-type SayToMeTimersPayload = { readonly timers?: ReadonlyArray<SayToMeTimer> };
+const SayToMeTimerSchema = Schema.Struct({
+  id: Schema.Number,
+  title: Schema.String,
+  message: Schema.String,
+  status: Schema.String,
+  nextFireAt: Schema.Number,
+  intervalMs: Schema.NullOr(Schema.Number),
+  lastFiredAt: Schema.optional(Schema.NullOr(Schema.Number)),
+  lastError: Schema.optional(Schema.NullOr(Schema.String)),
+});
+
+const SayToMeTimersPayloadSchema = Schema.Struct({
+  timers: Schema.optional(Schema.Array(SayToMeTimerSchema)),
+});
 
 function timersAtom(sessionId: string) {
   return Atom.make(Effect.promise(() => fetchSayToMeTimers(sessionId))).pipe(
-    Atom.swr({ staleTime: 5_000, revalidateOnMount: true }),
+    Atom.swr({ staleTime: 15_000, revalidateOnMount: true }),
     Atom.setIdleTTL(5 * 60_000),
     Atom.withLabel(`say-to-me:timers:${sessionId}`),
   );
@@ -33,8 +47,11 @@ async function fetchSayToMeTimers(sessionId: string): Promise<ReadonlyArray<SayT
     credentials: "include",
   });
   if (!response.ok) throw new Error("Unable to load Say To Me timers.");
-  const payload = (await response.json()) as SayToMeTimersPayload;
-  return Array.isArray(payload.timers) ? payload.timers : [];
+  const payload = await response.json();
+  const decoded = await Effect.runPromise(
+    Schema.decodeUnknownEffect(SayToMeTimersPayloadSchema)(payload),
+  );
+  return decoded.timers ?? [];
 }
 
 export function useSayToMeTimers(sessionId: string) {
@@ -52,7 +69,7 @@ export function useSayToMeTimers(sessionId: string) {
     const interval = window.setInterval(() => {
       refresh();
       setNow(Date.now());
-    }, 5_000);
+    }, 15_000);
     return () => window.clearInterval(interval);
   }, [refresh]);
 
