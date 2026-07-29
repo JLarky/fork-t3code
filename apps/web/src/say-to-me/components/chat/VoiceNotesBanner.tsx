@@ -211,7 +211,7 @@ function VoiceNoteExtraMarkdown({
       data-testid="say-to-me-extra-markdown"
       className={cn(
         "mt-2 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 short:mt-1 short:rounded-lg short:px-1.5 short:py-1.5",
-        compact && "max-h-36 overflow-hidden short:max-h-28",
+        compact && "max-h-36 overflow-y-auto overscroll-contain short:max-h-28",
       )}
     >
       {compact ? null : (
