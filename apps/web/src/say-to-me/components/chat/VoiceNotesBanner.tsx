@@ -4,13 +4,16 @@ import {
   CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  CopyIcon,
   PlayIcon,
   SquareIcon,
   Volume2Icon,
 } from "lucide-react";
 
 import { cn } from "~/lib/utils";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
+import ChatMarkdown from "../../../components/ChatMarkdown";
 import { Button } from "../../../components/ui/button";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
@@ -40,6 +43,7 @@ type VoiceNote = {
   readonly author: string;
   readonly time: string;
   readonly text: string;
+  readonly extraMarkdown: string | null;
   readonly status: string;
   readonly attachments: ReadonlyArray<SayToMeAttachment>;
 };
@@ -55,6 +59,7 @@ type SayToMeMessage = {
   readonly id: number;
   readonly author: string;
   readonly text: string;
+  readonly extraMarkdown?: string | null;
   readonly status: string;
   readonly createdAt: string;
   readonly attachments?: ReadonlyArray<SayToMeAttachment>;
@@ -188,6 +193,30 @@ export function claimQueuedNotesForStopAll(
   return stoppedIds;
 }
 
+function VoiceNoteExtraMarkdown({ markdown }: { readonly markdown: string }) {
+  const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "extra markdown" });
+
+  return (
+    <div
+      data-testid="say-to-me-extra-markdown"
+      className="relative mt-2 rounded-xl border border-border/70 bg-muted/25 px-3 py-2.5 short:mt-1 short:rounded-lg short:px-1.5 short:py-1.5"
+    >
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        aria-label={isCopied ? "Copied extra markdown" : "Copy extra markdown"}
+        title={isCopied ? "Copied" : "Copy extra markdown"}
+        className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-foreground short:top-1 short:right-1"
+        onClick={() => copyToClipboard(markdown, undefined)}
+      >
+        {isCopied ? <CheckIcon className="size-3 text-primary" /> : <CopyIcon className="size-3" />}
+      </Button>
+      <ChatMarkdown text={markdown} cwd={undefined} className="pr-7" />
+    </div>
+  );
+}
+
 /** Notes are stored newest-first; the speaker icon replays that head entry when idle. */
 export function mostRecentVoiceNote<T>(notes: ReadonlyArray<T>): T | null {
   return notes[0] ?? null;
@@ -250,6 +279,7 @@ export function VoiceNotesBanner({
             author: message.author,
             time: message.createdAt,
             text: message.text,
+            extraMarkdown: message.extraMarkdown ?? null,
             status: message.status,
             attachments: message.attachments ?? [],
           })),
@@ -569,6 +599,9 @@ export function VoiceNotesBanner({
                         <p className="mt-1 text-sm leading-5 short:mt-0.5 short:text-[11px] short:leading-4">
                           {note.text}
                         </p>
+                        {typeof note.extraMarkdown === "string" && note.extraMarkdown.trim() ? (
+                          <VoiceNoteExtraMarkdown markdown={note.extraMarkdown} />
+                        ) : null}
                         {note.attachments.length > 0 ? (
                           <div className="mt-2 flex flex-wrap gap-2 short:mt-1 short:gap-1.5">
                             {note.attachments.map((attachment) => {
