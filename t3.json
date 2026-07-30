@@ -16,6 +16,14 @@
       "name": "start 5477",
       "command": "boo new t3-worktree-5477 -d -- bash -lc '\n  cd /home/ylapin.guest/.t3/worktrees/t3code/t3code-84ecd53d &&\n  NODE_EXTRA_CA_CERTS=/home/ylapin.guest/.portless/ca.pem \\\n  PORT=5477 \\\n  T3CODE_PORT=13777 \\\n  VITE_DEV_SERVER_URL=http://localhost:5477 \\\n  VITE_HTTP_URL=http://localhost:13777 \\\n  VITE_WS_URL=ws://localhost:13777 \\\n  vp run --filter=@t3tools/contracts --filter=@t3tools/web --filter=t3 --parallel dev\n'",
       "previewUrl": "http://localhost:5477"
+    },
+    {
+      "name": "create pairing code 5470",
+      "command": "T3CODE_PORT=5470 node apps/server/src/bin.ts auth pairing create --base-dir /home/ylapin.guest/.t3 --dev-url http://localhost:5470 --base-url http://localhost:5470 --ttl 15m --label t3-5470"
+    },
+    {
+      "name": "create pairing code 5477",
+      "command": "T3CODE_PORT=13777 node apps/server/src/bin.ts auth pairing create --base-dir /home/ylapin.guest/.t3/dev --dev-url http://localhost:5477 --base-url http://localhost:5477 --ttl 15m --label t3-5477"
     }
   ]
 }
