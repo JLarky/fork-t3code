@@ -63,8 +63,20 @@ import {
   type KeybindingsUpdateToastController,
 } from "../components/KeybindingsUpdateToast.logic";
 
+function isParkedSessionPath(pathname: string): boolean {
+  return /^\/[^/]+\/[^/]+\/p\/?$/.test(pathname);
+}
+
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
+    if (isParkedSessionPath(location.pathname)) {
+      return {
+        authGateState: {
+          status: "parked",
+        } as const,
+      };
+    }
+
     if (location.pathname === "/pair" && hasHostedPairingRequest(new URL(window.location.href))) {
       return {
         authGateState: {
@@ -92,10 +104,6 @@ export const Route = createRootRoute({
     meta: [{ name: "title", content: APP_DISPLAY_NAME }],
   }),
 });
-
-function isParkedSessionPath(pathname: string): boolean {
-  return /^\/[^/]+\/[^/]+\/p\/?$/.test(pathname);
-}
 
 function RootRouteView() {
   const pathname = useLocation({ select: (location) => location.pathname });
