@@ -20,6 +20,7 @@ import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPan
 import { useSayToMeTimers } from "../timers/useSayToMeTimers";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
+import { useSoundUnlock } from "../../useSoundUnlock";
 import { voiceNotesSessionId } from "../../voiceSessionId";
 
 export { voiceNotesSessionId };
@@ -301,8 +302,8 @@ function sessionWaitingClass(waitingState: string | null | undefined): string {
 function VoiceNoteSessionCard({ session }: { readonly session: SayToMeSession }) {
   const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "session mention" });
   const mention = session.alias
-    ? `@session(${session.id}, ${session.alias})`
-    : `@session(${session.id})`;
+    ? `say-to-me(${session.id}, ${session.alias})`
+    : `say-to-me(${session.id})`;
   const latestActivity = session.latestActivity ?? session.summaryUpdatedAt;
 
   return (
@@ -385,6 +386,9 @@ export function VoiceNotesBanner({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [timersOpen, setTimersOpen] = useState(false);
+  const { copyToClipboard: copySessionMention, isCopied: isSessionMentionCopied } =
+    useCopyToClipboard({ target: "session mention" });
+  const { showEnableSound, enableSound, reportPermissionIssue } = useSoundUnlock();
   const { timers, now: timerNow, refresh: refreshTimers } = useSayToMeTimers(sessionId);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useLocalStorage(
@@ -553,11 +557,12 @@ export function VoiceNotesBanner({
         autoplayLockRef.current = false;
         updateNoteStatus(note.id, "played");
       };
-      utterance.onerror = () => {
+      utterance.onerror = (event) => {
         utteranceRef.current = null;
         setPlayingId(null);
         autoplayLockRef.current = false;
         updateNoteStatus(note.id, "stopped");
+        if (event.error === "not-allowed") reportPermissionIssue();
       };
       utteranceRef.current = utterance;
       setPlayingId(note.id);
@@ -667,6 +672,20 @@ export function VoiceNotesBanner({
                 </a>
               </h2>
               <div className="flex shrink-0 items-center gap-1">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Copy Say To Me session mention"
+                  title="Copy Say To Me session mention"
+                  className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
+                  onClick={() => copySessionMention(`say-to-me(${sessionId})`, undefined)}
+                >
+                  {isSessionMentionCopied ? (
+                    <CheckIcon className="size-3.5 short:size-3" aria-hidden />
+                  ) : (
+                    "ID"
+                  )}
+                </Button>
                 {!collapsed ? (
                   <Button
                     size="icon-xs"
@@ -702,6 +721,33 @@ export function VoiceNotesBanner({
             </div>
           </div>
         </div>
+
+        {showEnableSound ? (
+          <div
+            className={cn(
+              "flex items-center justify-between gap-2",
+              collapsed
+                ? "mt-1 justify-end"
+                : "mt-2 rounded-xl border border-border/60 bg-background/55 px-3 py-2 text-sm short:mt-1 short:rounded-lg short:px-1.5 short:py-1.5 short:text-[11px]",
+            )}
+          >
+            {!collapsed ? (
+              <span className="text-muted-foreground">
+                Enable sound to hear Say To Me notifications.
+              </span>
+            ) : null}
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              className={cn("shrink-0", collapsed && "h-6 px-2 text-[10px]")}
+              onClick={() => void enableSound()}
+            >
+              <Volume2Icon className="size-3.5 short:size-3" aria-hidden />
+              Enable sound
+            </Button>
+          </div>
+        ) : null}
 
         {nextTimer ? (
           <button
