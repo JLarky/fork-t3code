@@ -29,6 +29,11 @@ function ParkedSessionPage() {
   return (
     <main className="flex min-h-svh items-center justify-center bg-background px-6 text-foreground">
       <section className="w-full max-w-xl space-y-6 text-center">
+        <img
+          src="/apple-touch-icon.png"
+          alt="T3 Code"
+          className="mx-auto size-16 rounded-2xl shadow-sm"
+        />
         <p className="text-lg font-medium">session parked</p>
         {search.title || search.project || search.cwd || search.branch ? (
           <dl className="space-y-2 text-left text-sm text-muted-foreground">
