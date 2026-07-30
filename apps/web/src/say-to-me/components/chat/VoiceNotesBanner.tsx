@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import * as Schema from "effect/Schema";
-import { useNavigate } from "@tanstack/react-router";
 import {
   AlarmClockIcon,
   CheckIcon,
@@ -387,7 +386,6 @@ export function VoiceNotesBanner({
   onInsertUsagePrompt,
 }: VoiceNotesBannerProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
-  const navigate = useNavigate();
   const notesUrl = voiceNotesUrl(sessionId);
   const [notes, setNotes] = useState<ReadonlyArray<VoiceNote>>([]);
   const [hasLoadedRemoteNotes, setHasLoadedRemoteNotes] = useState(false);
@@ -701,13 +699,16 @@ export function VoiceNotesBanner({
                   aria-label="Park session"
                   title="Park session"
                   className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
-                  onClick={() =>
-                    void navigate({
-                      to: "/$environmentId/$threadId/p",
-                      params: { environmentId, threadId },
-                      search: parkedSession,
-                    })
-                  }
+                  onClick={() => {
+                    const url = new URL(
+                      `/${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}/p`,
+                      window.location.origin,
+                    );
+                    for (const [key, value] of Object.entries(parkedSession)) {
+                      if (value) url.searchParams.set(key, value);
+                    }
+                    window.location.assign(url);
+                  }}
                 >
                   P
                 </Button>

@@ -14,7 +14,9 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { APP_BASE_NAME, APP_DISPLAY_NAME, APP_STAGE_LABEL } from "../branding";
 import { formatThreadDocumentTitle, resolveServerBackedAppDisplayName } from "../branding.logic";
 import { AppSidebarLayout } from "../components/AppSidebarLayout";
+import { ElectronBrowserHost } from "../browser/ElectronBrowserHost";
 import { CommandPalette } from "../components/CommandPalette";
+import { PreviewAutomationHosts } from "../components/preview/PreviewAutomationHosts";
 import { ConnectOnboardingDialog } from "../components/cloud/ConnectOnboardingDialog";
 import { RelayClientInstallDialog } from "../components/cloud/RelayClientInstallDialog";
 import { SshPasswordPromptDialog } from "../components/desktop/SshPasswordPromptDialog";
@@ -155,6 +157,8 @@ function RootRouteView() {
         {primaryEnvironmentAuthenticated ? <EventRouter /> : null}
         {primaryEnvironmentAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
         {primaryEnvironmentAuthenticated ? <SpacesOverlay /> : null}
+        {primaryEnvironmentAuthenticated ? <PreviewAutomationHosts /> : null}
+        {primaryEnvironmentAuthenticated ? <ElectronBrowserHost /> : null}
         {appShell}
       </AnchoredToastProvider>
     </ToastProvider>
