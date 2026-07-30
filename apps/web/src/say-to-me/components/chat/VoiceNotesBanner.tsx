@@ -370,12 +370,19 @@ export function latestVoiceNoteExtraMarkdown(
 type VoiceNotesBannerProps = {
   readonly environmentId: string;
   readonly threadId: string;
+  readonly parkedSession: {
+    readonly title: string;
+    readonly project?: string;
+    readonly cwd?: string;
+    readonly branch?: string;
+  };
   readonly onInsertUsagePrompt: () => void;
 };
 
 export function VoiceNotesBanner({
   environmentId,
   threadId,
+  parkedSession,
   onInsertUsagePrompt,
 }: VoiceNotesBannerProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
@@ -685,6 +692,25 @@ export function VoiceNotesBanner({
                   ) : (
                     "ID"
                   )}
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Park session"
+                  title="Park session"
+                  className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
+                  onClick={() => {
+                    const url = new URL(
+                      `/${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}/p`,
+                      window.location.origin,
+                    );
+                    for (const [key, value] of Object.entries(parkedSession)) {
+                      if (value) url.searchParams.set(key, value);
+                    }
+                    window.location.assign(url);
+                  }}
+                >
+                  P
                 </Button>
                 {!collapsed ? (
                   <Button

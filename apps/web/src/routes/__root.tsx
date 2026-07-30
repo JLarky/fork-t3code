@@ -14,7 +14,9 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { APP_BASE_NAME, APP_DISPLAY_NAME, APP_STAGE_LABEL } from "../branding";
 import { formatThreadDocumentTitle, resolveServerBackedAppDisplayName } from "../branding.logic";
 import { AppSidebarLayout } from "../components/AppSidebarLayout";
+import { ElectronBrowserHost } from "../browser/ElectronBrowserHost";
 import { CommandPalette } from "../components/CommandPalette";
+import { PreviewAutomationHosts } from "../components/preview/PreviewAutomationHosts";
 import { ConnectOnboardingDialog } from "../components/cloud/ConnectOnboardingDialog";
 import { RelayClientInstallDialog } from "../components/cloud/RelayClientInstallDialog";
 import { SshPasswordPromptDialog } from "../components/desktop/SshPasswordPromptDialog";
@@ -61,8 +63,20 @@ import {
   type KeybindingsUpdateToastController,
 } from "../components/KeybindingsUpdateToast.logic";
 
+function isParkedSessionPath(pathname: string): boolean {
+  return /^\/[^/]+\/[^/]+\/p\/?$/.test(pathname);
+}
+
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
+    if (isParkedSessionPath(location.pathname)) {
+      return {
+        authGateState: {
+          status: "parked",
+        } as const,
+      };
+    }
+
     if (location.pathname === "/pair" && hasHostedPairingRequest(new URL(window.location.href))) {
       return {
         authGateState: {
@@ -114,6 +128,12 @@ function RootRouteView() {
     );
   }
 
+  // Parked sessions are intentionally outside the authenticated app shell so
+  // this static page does not initialize the environment or WebSocket state.
+  if (isParkedSessionPath(pathname)) {
+    return <Outlet />;
+  }
+
   if (authGateState.status !== "authenticated" && authGateState.status !== "hosted-static") {
     return (
       <>
@@ -145,6 +165,8 @@ function RootRouteView() {
         {primaryEnvironmentAuthenticated ? <EventRouter /> : null}
         {primaryEnvironmentAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
         {primaryEnvironmentAuthenticated ? <SpacesOverlay /> : null}
+        {primaryEnvironmentAuthenticated ? <PreviewAutomationHosts /> : null}
+        {primaryEnvironmentAuthenticated ? <ElectronBrowserHost /> : null}
         {appShell}
       </AnchoredToastProvider>
     </ToastProvider>

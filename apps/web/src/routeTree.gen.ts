@@ -25,6 +25,7 @@ import { Route as SettingsArchivedRouteImport } from './routes/settings.archived
 import { Route as ConnectCallbackRouteImport } from './routes/connect_.callback'
 import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draftId'
 import { Route as ChatEnvironmentIdThreadIdRouteImport } from './routes/_chat.$environmentId.$threadId'
+import { Route as EnvironmentIdThreadIdPRouteImport } from './routes/$environmentId.$threadId.p'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -106,6 +107,11 @@ const ChatEnvironmentIdThreadIdRoute =
     path: '/$environmentId/$threadId',
     getParentRoute: () => ChatRoute,
   } as any)
+const EnvironmentIdThreadIdPRoute = EnvironmentIdThreadIdPRouteImport.update({
+  id: '/$environmentId/$threadId/p',
+  path: '/$environmentId/$threadId/p',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof ChatIndexRoute
@@ -121,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/settings/keybindings': typeof SettingsKeybindingsRoute
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
+  '/$environmentId/$threadId/p': typeof EnvironmentIdThreadIdPRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
 }
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
   '/': typeof ChatIndexRoute
+  '/$environmentId/$threadId/p': typeof EnvironmentIdThreadIdPRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
 }
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/settings/providers': typeof SettingsProvidersRoute
   '/settings/source-control': typeof SettingsSourceControlRoute
   '/_chat/': typeof ChatIndexRoute
+  '/$environmentId/$threadId/p': typeof EnvironmentIdThreadIdPRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/_chat/draft/$draftId': typeof ChatDraftDraftIdRoute
 }
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/settings/keybindings'
     | '/settings/providers'
     | '/settings/source-control'
+    | '/$environmentId/$threadId/p'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
   fileRoutesByTo: FileRoutesByTo
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/source-control'
     | '/'
+    | '/$environmentId/$threadId/p'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
   id:
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/settings/providers'
     | '/settings/source-control'
     | '/_chat/'
+    | '/$environmentId/$threadId/p'
     | '/_chat/$environmentId/$threadId'
     | '/_chat/draft/$draftId'
   fileRoutesById: FileRoutesById
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   PairRoute: typeof PairRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   ConnectCallbackRoute: typeof ConnectCallbackRoute
+  EnvironmentIdThreadIdPRoute: typeof EnvironmentIdThreadIdPRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -337,6 +350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatEnvironmentIdThreadIdRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/$environmentId/$threadId/p': {
+      id: '/$environmentId/$threadId/p'
+      path: '/$environmentId/$threadId/p'
+      fullPath: '/$environmentId/$threadId/p'
+      preLoaderRoute: typeof EnvironmentIdThreadIdPRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   PairRoute: PairRoute,
   SettingsRoute: SettingsRouteWithChildren,
   ConnectCallbackRoute: ConnectCallbackRoute,
+  EnvironmentIdThreadIdPRoute: EnvironmentIdThreadIdPRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
