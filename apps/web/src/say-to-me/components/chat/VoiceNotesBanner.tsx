@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as Schema from "effect/Schema";
+import { useNavigate } from "@tanstack/react-router";
 import {
   AlarmClockIcon,
   CheckIcon,
@@ -370,15 +371,23 @@ export function latestVoiceNoteExtraMarkdown(
 type VoiceNotesBannerProps = {
   readonly environmentId: string;
   readonly threadId: string;
+  readonly parkedSession: {
+    readonly title: string;
+    readonly project?: string;
+    readonly cwd?: string;
+    readonly branch?: string;
+  };
   readonly onInsertUsagePrompt: () => void;
 };
 
 export function VoiceNotesBanner({
   environmentId,
   threadId,
+  parkedSession,
   onInsertUsagePrompt,
 }: VoiceNotesBannerProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
+  const navigate = useNavigate();
   const notesUrl = voiceNotesUrl(sessionId);
   const [notes, setNotes] = useState<ReadonlyArray<VoiceNote>>([]);
   const [hasLoadedRemoteNotes, setHasLoadedRemoteNotes] = useState(false);
@@ -685,6 +694,22 @@ export function VoiceNotesBanner({
                   ) : (
                     "ID"
                   )}
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Park session"
+                  title="Park session"
+                  className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
+                  onClick={() =>
+                    void navigate({
+                      to: "/$environmentId/$threadId/p",
+                      params: { environmentId, threadId },
+                      search: parkedSession,
+                    })
+                  }
+                >
+                  P
                 </Button>
                 {!collapsed ? (
                   <Button

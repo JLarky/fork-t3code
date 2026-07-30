@@ -61,6 +61,7 @@ describe("Say To Me section", () => {
       <VoiceNotesBanner
         environmentId="3bae4963-5d72-4221-835b-66e2770e72d0"
         threadId="2572d5ed-a15b-487f-8102-71a350b357ed"
+        parkedSession={{ title: "Test thread" }}
         onInsertUsagePrompt={() => undefined}
       />,
     );
@@ -102,6 +103,7 @@ describe("Say To Me section", () => {
       <VoiceNotesBanner
         environmentId="3bae4963-5d72-4221-835b-66e2770e72d0"
         threadId="2572d5ed-a15b-487f-8102-71a350b357ed"
+        parkedSession={{ title: "Test thread" }}
         onInsertUsagePrompt={() => undefined}
       />,
     );

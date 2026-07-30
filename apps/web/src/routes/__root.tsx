@@ -91,6 +91,10 @@ export const Route = createRootRoute({
   }),
 });
 
+function isParkedSessionPath(pathname: string): boolean {
+  return /^\/[^/]+\/[^/]+\/p\/?$/.test(pathname);
+}
+
 function RootRouteView() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const { authGateState } = Route.useRouteContext();
@@ -112,6 +116,12 @@ function RootRouteView() {
         <Outlet />
       </>
     );
+  }
+
+  // Parked sessions are intentionally outside the authenticated app shell so
+  // this static page does not initialize the environment or WebSocket state.
+  if (isParkedSessionPath(pathname)) {
+    return <Outlet />;
   }
 
   if (authGateState.status !== "authenticated" && authGateState.status !== "hosted-static") {
