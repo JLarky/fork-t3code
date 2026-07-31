@@ -13,20 +13,6 @@
   - Subagents must not independently launch dev servers or repeat integrated client verification unless their delegated task explicitly requires it.
   - Stop dev servers, watchers, and other long-running verification processes when the focused verification is complete.
 
-## Long-Lived Dev Stack In This Worktree
-
-- This worktree keeps one long-lived dev stack, owned by the `start 5477` / `stop 5477` actions in
-  `t3.json`. It covers both halves: the Vite web server on 5477 **and** the backend on 13777.
-- Reuse it. Do not start a server yourself and do not pick your own `T3CODE_HOME`. A second backend
-  either fails with `EADDRINUSE` on 13777 or, worse, comes up on another port against a different
-  `state.sqlite`, which shows up later as pairing failures and intermittent 500s.
-- The isolated state directory is `~/.t3/dev`; the 5470 desktop stack uses the default `~/.t3`. Keep
-  them separate.
-- The stack is reachable at `http://localhost:5477` on this machine and over Tailscale for phone
-  testing; `start 5477` prints the tailnet URL when the backend comes up.
-- This overrides the `test-t3-app` / `test-t3-mobile` guidance above for _this_ worktree: verify
-  against the running stack instead of launching another isolated environment.
-
 ## Package Roles
 
 - `apps/server`: Node.js WebSocket server. Wraps Codex app-server (JSON-RPC over stdio), serves the React web app, and manages provider sessions.
