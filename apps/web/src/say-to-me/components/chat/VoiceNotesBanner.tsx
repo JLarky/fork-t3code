@@ -186,11 +186,17 @@ export function sayToMeBannerSectionClass(
   hasCollapsedAction = false,
 ): string {
   const hasInteractiveCollapsedContent = hasExtraMarkdown || hasCollapsedAction;
+  // `w-max` keeps the floating panel shrink-to-fit so it never wraps its own
+  // header. Caps stay relative to the chat column (not the viewport) so the
+  // right-anchored panel cannot spill past the column it floats over. Never add
+  // a plain `w-*` here: tailwind-merge would drop `w-max` and pin the panel to a
+  // fixed width, stretching the card across the timeline.
   return collapsed
     ? cn(
         "absolute top-2 right-[10px] z-30 w-max short:top-1",
-        hasInteractiveCollapsedContent ? "pointer-events-auto" : "pointer-events-none",
-        hasInteractiveCollapsedContent ? "max-w-[min(80vw,32rem)]" : "max-w-[min(30%,18rem)]",
+        hasInteractiveCollapsedContent
+          ? "pointer-events-auto max-w-[min(calc(100%-20px),32rem)]"
+          : "pointer-events-none max-w-[calc(100%-20px)]",
       )
     : "mx-auto w-[min(48rem,calc(100%-2rem))] shrink-0 py-3 short:py-1.5";
 }

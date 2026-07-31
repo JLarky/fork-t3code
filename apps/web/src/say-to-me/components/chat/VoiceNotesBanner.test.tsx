@@ -89,10 +89,24 @@ describe("Say To Me section", () => {
     expect(sayToMeBannerSectionClass(false)).not.toContain("absolute");
     expect(sayToMeBannerSectionClass(true)).toContain("absolute top-2 right-[10px]");
     expect(sayToMeBannerSectionClass(true)).toContain("w-max");
-    expect(sayToMeBannerSectionClass(true)).toContain("max-w-[min(30%,18rem)]");
-    expect(sayToMeBannerSectionClass(true, true)).toContain("max-w-[min(80vw,32rem)]");
+    expect(sayToMeBannerSectionClass(true)).toContain("max-w-[calc(100%-20px)]");
+    expect(sayToMeBannerSectionClass(true)).toContain("pointer-events-none");
+    expect(sayToMeBannerSectionClass(true, true)).toContain("max-w-[min(calc(100%-20px),32rem)]");
     expect(sayToMeBannerSectionClass(true, true)).toContain("pointer-events-auto");
     expect(sayToMeBannerSectionClass(true, false, true)).toContain("pointer-events-auto");
+  });
+
+  it("keeps the collapsed panel shrink-to-fit instead of a fixed width", () => {
+    // A plain `w-*` utility would win the tailwind-merge width group and drop
+    // `w-max`, stretching the collapsed card across the top of the timeline.
+    for (const className of [
+      sayToMeBannerSectionClass(true),
+      sayToMeBannerSectionClass(true, true),
+      sayToMeBannerSectionClass(true, false, true),
+    ]) {
+      expect(className).toContain("w-max");
+      expect(className.split(" ").filter((token) => token.startsWith("w-["))).toEqual([]);
+    }
   });
 
   it("restores the collapsed banner from local storage", () => {
