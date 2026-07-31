@@ -15,6 +15,7 @@ Object.assign(process.env, repoEnv);
 const port = Number(process.env.PORT ?? 5733);
 const host = process.env.HOST?.trim() || "localhost";
 const configuredWsUrl = process.env.VITE_WS_URL?.trim();
+const configuredBackendPort = process.env.T3CODE_PORT?.trim();
 const configuredRelayUrl = repoEnv.VITE_T3CODE_RELAY_URL?.trim() || "";
 const configuredClerkPublishableKey = repoEnv.VITE_CLERK_PUBLISHABLE_KEY?.trim() || "";
 const configuredClerkJwtTemplate = repoEnv.VITE_CLERK_JWT_TEMPLATE?.trim() || "";
@@ -86,7 +87,23 @@ function resolveDevProxyTarget(wsUrl: string | undefined): string | undefined {
   }
 }
 
-const devProxyTarget = resolveDevProxyTarget(configuredWsUrl);
+// The backend port alone is enough to build the proxy target, so the dev stack
+// does not have to publish VITE_HTTP_URL/VITE_WS_URL to the client just to get
+// a proxy. Leaving those unset lets the client target its own origin, which is
+// what makes the dev server reachable from a phone over Tailscale.
+function resolveDevProxyTargetFromPort(backendPort: string | undefined): string | undefined {
+  if (!backendPort) {
+    return undefined;
+  }
+  const parsedPort = Number(backendPort);
+  if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65_535) {
+    return undefined;
+  }
+  return `http://127.0.0.1:${parsedPort}/`;
+}
+
+const devProxyTarget =
+  resolveDevProxyTarget(configuredWsUrl) ?? resolveDevProxyTargetFromPort(configuredBackendPort);
 
 export default defineConfig(() => {
   return {
@@ -165,6 +182,11 @@ export default defineConfig(() => {
               "/park": {
                 target: devProxyTarget,
                 changeOrigin: true,
+              },
+              "/ws": {
+                target: devProxyTarget,
+                changeOrigin: true,
+                ws: true,
               },
             },
           }
