@@ -162,6 +162,10 @@ export default defineConfig(() => {
                 target: devProxyTarget,
                 changeOrigin: true,
               },
+              "/park": {
+                target: devProxyTarget,
+                changeOrigin: true,
+              },
             },
           }
         : {}),

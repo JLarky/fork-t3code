@@ -686,6 +686,21 @@ export function VoiceNotesBanner({
                     "ID"
                   )}
                 </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Park session"
+                  title="Park session"
+                  className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
+                  onClick={() => {
+                    const url = new URL("/park", window.location.origin);
+                    url.searchParams.set("environmentId", environmentId);
+                    url.searchParams.set("threadId", threadId);
+                    window.location.assign(url);
+                  }}
+                >
+                  P
+                </Button>
                 {!collapsed ? (
                   <Button
                     size="icon-xs"
