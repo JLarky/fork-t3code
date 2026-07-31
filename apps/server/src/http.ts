@@ -56,6 +56,8 @@ function parkedPageField(label: string, value: string | null): string {
 }
 
 function parkedPageHtml(url: URL): string {
+  const environmentId = url.searchParams.get("environmentId");
+  const threadId = url.searchParams.get("threadId");
   const title = url.searchParams.get("title");
   const project = url.searchParams.get("project");
   const cwd = url.searchParams.get("cwd");
@@ -66,6 +68,10 @@ function parkedPageHtml(url: URL): string {
     parkedPageField("Directory", cwd),
     parkedPageField("Branch", branch),
   ].join("");
+  const returnHref =
+    environmentId && threadId
+      ? `/${encodeURIComponent(environmentId)}/${encodeURIComponent(threadId)}`
+      : null;
 
   return `<!doctype html>
 <html lang="en">
@@ -90,6 +96,7 @@ function parkedPageHtml(url: URL): string {
       <img src="/apple-touch-icon.png" alt="T3 Code">
       <p>session parked</p>
       ${fields ? `<dl>${fields}</dl>` : ""}
+      ${returnHref ? `<a href="${escapeHtml(returnHref)}">Return to session</a>` : ""}
     </main>
   </body>
 </html>`;
