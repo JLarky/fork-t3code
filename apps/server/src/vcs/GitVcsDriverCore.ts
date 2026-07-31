@@ -2334,19 +2334,74 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
   const resolveRemoteTrackingCommit: GitVcsDriver.GitVcsDriver["Service"]["resolveRemoteTrackingCommit"] =
     Effect.fn("resolveRemoteTrackingCommit")(function* (input) {
       const remoteNames = yield* listRemoteNames(input.cwd);
-      const parsedRemoteRef = parseRemoteRefWithRemoteNames(
-        input.refName,
-        remoteNames.toSorted((left, right) => right.length - left.length),
-      );
-      const remoteRefName =
-        parsedRemoteRef?.remoteRef ?? `${input.fallbackRemoteName}/${input.refName}`;
-      const commitSha = yield* runGitStdout("GitVcsDriver.resolveRemoteTrackingCommit", input.cwd, [
-        "rev-parse",
-        "--verify",
-        `refs/remotes/${remoteRefName}^{commit}`,
-      ]).pipe(Effect.map((stdout) => stdout.trim()));
+      const remoteRefNames = remoteNames.toSorted((left, right) => right.length - left.length);
+      const parsedRemoteRef = parseRemoteRefWithRemoteNames(input.refName, remoteRefNames);
+      const resolveCommit = (refName: string) =>
+        runGitStdout(
+          "GitVcsDriver.resolveRemoteTrackingCommit",
+          input.cwd,
+          ["rev-parse", "--verify", `${refName}^{commit}`],
+          true,
+        ).pipe(
+          Effect.map((stdout) => {
+            const commitSha = stdout.trim();
+            return commitSha.length > 0 ? commitSha : null;
+          }),
+        );
 
-      return { commitSha, remoteRefName };
+      if (parsedRemoteRef) {
+        const commitSha = yield* resolveCommit(`refs/remotes/${parsedRemoteRef.remoteRef}`);
+        if (commitSha) {
+          return { commitSha, remoteRefName: parsedRemoteRef.remoteRef };
+        }
+      } else {
+        const upstreamRef = yield* runGitStdout(
+          "GitVcsDriver.resolveRemoteTrackingCommit.upstream",
+          input.cwd,
+          ["rev-parse", "--verify", "--symbolic-full-name", `${input.refName}@{upstream}`],
+          true,
+        ).pipe(Effect.map((stdout) => stdout.trim()));
+        const upstreamRemoteRef = upstreamRef.startsWith("refs/remotes/")
+          ? upstreamRef.slice("refs/remotes/".length)
+          : null;
+        const parsedUpstreamRef = upstreamRemoteRef
+          ? parseRemoteRefWithRemoteNames(upstreamRemoteRef, remoteRefNames)
+          : null;
+
+        if (parsedUpstreamRef) {
+          const commitSha = yield* resolveCommit(`refs/remotes/${parsedUpstreamRef.remoteRef}`);
+          if (commitSha) {
+            return { commitSha, remoteRefName: parsedUpstreamRef.remoteRef };
+          }
+        }
+
+        const fallbackRemoteRef = `${input.fallbackRemoteName}/${input.refName}`;
+        const fallbackCommitSha = yield* resolveCommit(`refs/remotes/${fallbackRemoteRef}`);
+        if (fallbackCommitSha) {
+          return { commitSha: fallbackCommitSha, remoteRefName: fallbackRemoteRef };
+        }
+
+        const localCommitSha = yield* resolveCommit(`refs/heads/${input.refName}`);
+        if (localCommitSha) {
+          return { commitSha: localCommitSha, remoteRefName: null };
+        }
+      }
+
+      // Report the ref we actually looked for, so the error is not a plausible-looking
+      // command that never ran.
+      const attemptedRemoteRef =
+        parsedRemoteRef?.remoteRef ?? `${input.fallbackRemoteName}/${input.refName}`;
+      const detail = parsedRemoteRef
+        ? `Could not resolve remote-tracking ref '${attemptedRemoteRef}'. Fetch the remote, or pick a ref that exists.`
+        : `Could not resolve '${input.refName}' to a remote-tracking ref (tried its configured upstream and '${attemptedRemoteRef}') or to a local branch.`;
+      return yield* new GitCommandError({
+        ...gitCommandContext({
+          operation: "GitVcsDriver.resolveRemoteTrackingCommit",
+          cwd: input.cwd,
+          args: ["rev-parse", "--verify", `refs/remotes/${attemptedRemoteRef}^{commit}`],
+        }),
+        detail,
+      });
     });
 
   const fetchRemoteBranch: GitVcsDriver.GitVcsDriver["Service"]["fetchRemoteBranch"] = Effect.fn(

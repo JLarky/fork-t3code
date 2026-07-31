@@ -174,7 +174,8 @@ export interface GitResolveRemoteTrackingCommitInput {
 
 export interface GitResolveRemoteTrackingCommitResult {
   commitSha: string;
-  remoteRefName: string;
+  /** Null when the commit was resolved from the local branch instead. */
+  remoteRefName: string | null;
 }
 
 export interface GitSetBranchUpstreamInput {
