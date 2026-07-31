@@ -62,8 +62,10 @@ function parkedPageHtml(url: URL): string {
   const project = url.searchParams.get("project");
   const cwd = url.searchParams.get("cwd");
   const branch = url.searchParams.get("branch");
+  const sessionId = threadId ? `say-to-me(t3_${threadId})` : null;
   const fields = [
     parkedPageField("Title", title),
+    parkedPageField("Session ID", sessionId),
     parkedPageField("Project", project),
     parkedPageField("Directory", cwd),
     parkedPageField("Branch", branch),
