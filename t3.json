@@ -14,7 +14,7 @@
     },
     {
       "name": "start 5477",
-      "command": "boo kill t3-worktree-5477 >/dev/null 2>&1 || true; boo new t3-worktree-5477 -d -- bash -lc '\ncd /home/ylapin.guest/.t3/worktrees/t3code/t3code-84ecd53d\nexport T3CODE_HOME=/home/ylapin.guest/.t3/dev\nexport NODE_EXTRA_CA_CERTS=/home/ylapin.guest/.portless/ca.pem\nexport PORT=5477\nexport T3CODE_PORT=13777\nexport VITE_DEV_SERVER_URL=http://localhost:5477\nexport VITE_HTTP_URL=http://localhost:13777\nexport VITE_WS_URL=ws://localhost:13777\nvp run --filter=@t3tools/contracts --filter=@t3tools/web --filter=t3 --parallel dev &\nrunner=$!\nfor attempt in $(seq 1 30); do\n  if curl -fsS http://127.0.0.1:13777/.well-known/t3/environment >/dev/null; then\n    echo \"T3 backend ready on 13777\"\n    wait \"$runner\"\n    exit $?\n  fi\n  if ! kill -0 \"$runner\" 2>/dev/null; then\n    wait \"$runner\"\n    exit 1\n  fi\n  sleep 1\ndone\necho \"T3 backend did not become ready on 13777\" >&2\nkill \"$runner\" 2>/dev/null || true\nwait \"$runner\"\nexit 1\n'",
+      "command": "boo kill t3-worktree-5477 >/dev/null 2>&1 || true; for attempt in $(seq 1 40); do ss -tln 2>/dev/null | grep -q ':5477 ' || break; sleep 0.25; done; boo new t3-worktree-5477 -d -- bash -lc '\ncd /home/ylapin.guest/.t3/worktrees/t3code/t3code-84ecd53d\nexport T3CODE_HOME=/home/ylapin.guest/.t3/dev\nexport NODE_EXTRA_CA_CERTS=/home/ylapin.guest/.portless/ca.pem\nexport PORT=5477\nexport T3CODE_PORT=13777\nexport VITE_DEV_SERVER_URL=http://localhost:5477\n# This owns the whole stack: web on 5477 and the backend on 13777. Never start\n# either one separately -- a second backend either fails with EADDRINUSE on\n# 13777 or, worse, comes up on another port against a different state.sqlite.\n# Deliberately no VITE_HTTP_URL/VITE_WS_URL: those get baked into the bundle and\n# would send a phone to its own localhost:13777. Unset, the client targets its\n# own origin and Vite proxies /api and /ws to T3CODE_PORT.\nunset PORTLESS_URL PORTLESS_TAILSCALE PORTLESS_TAILSCALE_URL PORTLESS_LAN\nvp run --filter=@t3tools/contracts --filter=@t3tools/web --filter=t3 --parallel dev &\nrunner=$!\nfor attempt in $(seq 1 30); do\n  if curl -fsS http://127.0.0.1:13777/.well-known/t3/environment >/dev/null; then\n    echo \"T3 backend ready on 13777\"\n    # A fixed tailnet port is reused on every start, so the phone URL never\n    # changes and no stale `tailscale serve` entries pile up.\n    tailscale serve --bg --yes --https=8477 http://127.0.0.1:5477 >/dev/null 2>&1 || echo \"could not pin tailscale serve on 8477\" >&2\n    echo \"phone: https://lima-default.tail052173.ts.net:8477\"\n    wait \"$runner\"\n    exit $?\n  fi\n  if ! kill -0 \"$runner\" 2>/dev/null; then\n    wait \"$runner\"\n    exit 1\n  fi\n  sleep 1\ndone\necho \"T3 backend did not become ready on 13777\" >&2\nkill \"$runner\" 2>/dev/null || true\nwait \"$runner\"\nexit 1\n'",
       "previewUrl": "http://localhost:5477"
     },
     {
@@ -24,6 +24,10 @@
     {
       "name": "create pairing code 5477",
       "command": "T3CODE_PORT=13777 node apps/server/src/bin.ts auth pairing create --base-dir /home/ylapin.guest/.t3/dev --dev-url http://localhost:5477 --base-url http://localhost:5477 --ttl 15m --label t3-5477"
+    },
+    {
+      "name": "create pairing code 5477 (phone)",
+      "command": "T3CODE_PORT=13777 node apps/server/src/bin.ts auth pairing create --base-dir /home/ylapin.guest/.t3/dev --dev-url http://localhost:5477 --base-url https://lima-default.tail052173.ts.net:8477 --ttl 30m --label t3-5477-phone"
     }
   ]
 }
