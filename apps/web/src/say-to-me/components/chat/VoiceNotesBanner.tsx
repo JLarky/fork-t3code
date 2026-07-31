@@ -370,12 +370,20 @@ export function latestVoiceNoteExtraMarkdown(
 type VoiceNotesBannerProps = {
   readonly environmentId: string;
   readonly threadId: string;
+  readonly sessionTitle?: string | null | undefined;
+  readonly projectName?: string | null | undefined;
+  readonly workingDirectory?: string | null | undefined;
+  readonly branchName?: string | null | undefined;
   readonly onInsertUsagePrompt: () => void;
 };
 
 export function VoiceNotesBanner({
   environmentId,
   threadId,
+  sessionTitle,
+  projectName,
+  workingDirectory,
+  branchName,
   onInsertUsagePrompt,
 }: VoiceNotesBannerProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
@@ -661,7 +669,7 @@ export function VoiceNotesBanner({
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3 short:gap-1.5">
-              <h2 className="font-medium text-sm short:text-[11px]">
+              <h2 className="min-w-0 font-medium text-sm short:text-[11px]">
                 <a
                   href={sayToMeTitleUrl(sessionId, sessionState)}
                   target="_blank"
@@ -671,7 +679,7 @@ export function VoiceNotesBanner({
                   Say To Me
                 </a>
               </h2>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1 short:gap-0.5">
                 <Button
                   size="xs"
                   variant="ghost"
@@ -696,6 +704,14 @@ export function VoiceNotesBanner({
                     const url = new URL("/park", window.location.origin);
                     url.searchParams.set("environmentId", environmentId);
                     url.searchParams.set("threadId", threadId);
+                    for (const [key, value] of [
+                      ["title", sessionTitle],
+                      ["project", projectName],
+                      ["cwd", workingDirectory],
+                      ["branch", branchName],
+                    ] as const) {
+                      if (value) url.searchParams.set(key, value);
+                    }
                     window.location.assign(url);
                   }}
                 >
@@ -707,7 +723,7 @@ export function VoiceNotesBanner({
                     variant="ghost"
                     aria-label="Show timers"
                     title="Show timers"
-                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    className="shrink-0 text-muted-foreground hover:text-foreground short:h-5 short:w-5"
                     onClick={() => setTimersOpen((value) => !value)}
                   >
                     <AlarmClockIcon className="size-3.5 short:size-3" aria-hidden />
@@ -722,7 +738,7 @@ export function VoiceNotesBanner({
                   variant="ghost"
                   aria-expanded={!collapsed}
                   aria-label={collapsed ? "Expand Say To Me" : "Collapse Say To Me"}
-                  className="h-6 shrink-0 gap-0.5 px-1.5 text-xs short:h-5 short:text-[9px]"
+                  className="h-6 shrink-0 gap-0.5 px-1.5 text-xs short:h-5 short:px-1 short:text-[9px]"
                   onClick={() => setCollapsed((value) => !value)}
                 >
                   {collapsed ? (
