@@ -74,4 +74,30 @@ describe("setVoiceWidgetPlaybackActive", () => {
     setVoiceWidgetPlaybackActive(false);
     expect(isSpeechActive()).toBe(false);
   });
+
+  it("suppresses queued idle ding until playback-change clears, then restores it", async () => {
+    const events: string[] = [];
+    setVoiceWidgetPlaybackActive(true);
+
+    const ding = enqueueSound(
+      async () => {
+        while (isSpeechActive()) {
+          events.push("wait");
+          await delay(15);
+        }
+        events.push("ding");
+      },
+      { timeoutMs: 2000 },
+    );
+
+    await delay(40);
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((event) => event === "wait")).toBe(true);
+    expect(events).not.toContain("ding");
+
+    setVoiceWidgetPlaybackActive(false);
+    await ding;
+    expect(events.at(-1)).toBe("ding");
+    expect(isSpeechActive()).toBe(false);
+  });
 });

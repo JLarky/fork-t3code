@@ -3,11 +3,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "../components/ui/button";
 import { setVoiceWidgetPlaybackActive } from "./audioQueue";
-import { SAY_TO_ME_UI_URL } from "./sayToMeUi";
+import { SAY_TO_ME_UI_URL, sayToMeSessionUrl } from "./sayToMeUi";
 import { hasAutoplayPermission } from "./sound";
 import { useSoundUnlock } from "./useSoundUnlock";
 import { voiceNotesSessionId } from "./voiceSessionId";
 import {
+  buildSayToMeParkUrl,
   loadSayToMeVoiceWidgetHmrModuleOnce,
   readSayToMeVoiceWidgetCollapsedPreference,
   resolveSayToMeVoiceWidgetLoader,
@@ -17,9 +18,12 @@ import {
   SAY_TO_ME_VOICE_WIDGET_INSERT_USAGE_PROMPT_EVENT,
   SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING,
   SAY_TO_ME_VOICE_WIDGET_NOTES_BASE_URL,
+  SAY_TO_ME_VOICE_WIDGET_OPEN_SESSION_EVENT,
+  SAY_TO_ME_VOICE_WIDGET_PARK_SESSION_EVENT,
   SAY_TO_ME_VOICE_WIDGET_PERMISSION_ISSUE_EVENT,
   SAY_TO_ME_VOICE_WIDGET_PLAYBACK_CHANGE_EVENT,
   SAY_TO_ME_VOICE_WIDGET_SRC,
+  SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL,
   sayToMeVoiceWidgetCanAutoplayAttr,
   sayToMeVoiceWidgetContextAttrs,
   sayToMeVoiceWidgetHostPanelClass,
@@ -27,6 +31,14 @@ import {
   type SayToMeVoiceWidgetLoader,
 } from "./voiceWidget";
 import { parseSayToMeVoiceWidgetHostEvent } from "./voiceWidgetHostAdapter";
+
+function defaultOpenSessionUrl(url: string): void {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function defaultAssignParkUrl(url: string): void {
+  window.location.assign(url);
+}
 
 type HostedSayToMeVoiceWidgetProps = {
   readonly environmentId: string;
@@ -43,6 +55,10 @@ type HostedSayToMeVoiceWidgetProps = {
   readonly onInsertUsagePrompt?: (prompt: string) => void;
   /** Optional override for tests; defaults to hostname/dev selection. */
   readonly loader?: SayToMeVoiceWidgetLoader;
+  /** Test seam for open-session navigation. */
+  readonly openSessionUrl?: (url: string) => void;
+  /** Test seam for park-session navigation. */
+  readonly assignParkUrl?: (url: string) => void;
 };
 
 /**
@@ -58,6 +74,8 @@ export function HostedSayToMeVoiceWidget({
   branchName = null,
   onInsertUsagePrompt,
   loader = resolveSayToMeVoiceWidgetLoader(),
+  openSessionUrl = defaultOpenSessionUrl,
+  assignParkUrl = defaultAssignParkUrl,
 }: HostedSayToMeVoiceWidgetProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
   const { soundEnabled, showEnableSound, enableSound, reportPermissionIssue } = useSoundUnlock();
@@ -111,7 +129,20 @@ export function HostedSayToMeVoiceWidget({
           onInsertUsagePrompt?.(action.prompt);
           break;
         case "open-session":
+          openSessionUrl(sayToMeSessionUrl(sessionId));
+          break;
         case "park-session":
+          assignParkUrl(
+            buildSayToMeParkUrl({
+              origin: window.location.origin,
+              environmentId,
+              threadId,
+              title: sessionTitle,
+              project: projectName,
+              cwd: workingDirectory,
+              branch: branchName,
+            }),
+          );
           break;
         case "permission-issue":
           reportPermissionIssue();
@@ -126,6 +157,8 @@ export function HostedSayToMeVoiceWidget({
       SAY_TO_ME_VOICE_WIDGET_COLLAPSE_EVENT,
       SAY_TO_ME_VOICE_WIDGET_ERROR_EVENT,
       SAY_TO_ME_VOICE_WIDGET_INSERT_USAGE_PROMPT_EVENT,
+      SAY_TO_ME_VOICE_WIDGET_OPEN_SESSION_EVENT,
+      SAY_TO_ME_VOICE_WIDGET_PARK_SESSION_EVENT,
       SAY_TO_ME_VOICE_WIDGET_PERMISSION_ISSUE_EVENT,
       SAY_TO_ME_VOICE_WIDGET_PLAYBACK_CHANGE_EVENT,
     ] as const;
@@ -139,7 +172,19 @@ export function HostedSayToMeVoiceWidget({
       }
       setVoiceWidgetPlaybackActive(false);
     };
-  }, [onInsertUsagePrompt, reportPermissionIssue]);
+  }, [
+    assignParkUrl,
+    branchName,
+    environmentId,
+    onInsertUsagePrompt,
+    openSessionUrl,
+    projectName,
+    reportPermissionIssue,
+    sessionId,
+    sessionTitle,
+    threadId,
+    workingDirectory,
+  ]);
 
   return (
     <div
@@ -168,6 +213,7 @@ export function HostedSayToMeVoiceWidget({
           can-autoplay={sayToMeVoiceWidgetCanAutoplayAttr(canAutoplay)}
           storage-key={SAY_TO_ME_VOICE_WIDGET_COLLAPSE_STORAGE_KEY}
           ui-base-url={SAY_TO_ME_UI_URL}
+          timers-base-url={SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL}
           layout={SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING}
           {...contextAttrs}
         />

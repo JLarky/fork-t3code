@@ -9,6 +9,7 @@ import {
   SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING,
   SAY_TO_ME_VOICE_WIDGET_NOTES_BASE_URL,
   SAY_TO_ME_VOICE_WIDGET_SRC,
+  SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL,
   sayToMeVoiceWidgetHostPanelClass,
   sayToMeVoiceWidgetHostSectionClass,
 } from "./voiceWidget";
@@ -36,6 +37,7 @@ describe("HostedSayToMeVoiceWidget", () => {
     expect(markup).toContain("say-to-me-voice-widget");
     expect(markup).toContain(`session-id="${SESSION_ID}"`);
     expect(markup).toContain(`notes-base-url="${SAY_TO_ME_VOICE_WIDGET_NOTES_BASE_URL}"`);
+    expect(markup).toContain(`timers-base-url="${SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL}"`);
     expect(markup).toContain(`layout="${SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING}"`);
     expect(markup).toContain('session-title="Night shift thread"');
     expect(markup).toContain('project-name="E2E Night Shift 1"');

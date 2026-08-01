@@ -32,6 +32,9 @@ import {
   SAY_TO_ME_VOICE_WIDGET_S1_LIMITATION,
   SAY_TO_ME_VOICE_WIDGET_SRC,
   SAY_TO_ME_VOICE_WIDGET_TAG,
+  SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL,
+  buildSayToMeParkUrl,
+  formatSayToMeSessionMention,
   sayToMeVoiceWidgetCanAutoplayAttr,
   sayToMeVoiceWidgetContextAttrs,
   sayToMeVoiceWidgetHostPanelClass,
@@ -59,6 +62,7 @@ describe("Say To Me liftSolid voice widget loader", () => {
     expect(SAY_TO_ME_VOICE_WIDGET_S1_LIMITATION).toMatch(/S2\/S3/i);
     expect(sayToMeVoiceWidgetCanAutoplayAttr(true)).toBe("1");
     expect(sayToMeVoiceWidgetCanAutoplayAttr(false)).toBe("0");
+    expect(SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL).toBe("/api/say-to-me-timers");
   });
 
   it("keeps collapsed floating mounts shrink-to-fit like the legacy banner", () => {
@@ -72,7 +76,7 @@ describe("Say To Me liftSolid voice widget loader", () => {
     expect(sayToMeVoiceWidgetHostSectionClass(true)).toContain("absolute top-2 right-[10px]");
   });
 
-  it("builds S-theme context attrs without blanks", () => {
+  it("builds S-theme context attrs and exact session mention / park URLs", () => {
     expect(
       sayToMeVoiceWidgetContextAttrs({
         sessionTitle: " Thread ",
@@ -84,6 +88,21 @@ describe("Say To Me liftSolid voice widget loader", () => {
       "session-title": "Thread",
       "working-directory": "/tmp/x",
     });
+    expect(formatSayToMeSessionMention("t3_abc")).toBe("say-to-me(t3_abc)");
+    expect(formatSayToMeSessionMention("t3_abc", "Alias")).toBe("say-to-me(t3_abc, Alias)");
+    expect(
+      buildSayToMeParkUrl({
+        origin: "http://localhost:5477",
+        environmentId: "env",
+        threadId: "thread",
+        title: "Title",
+        project: "Proj",
+        cwd: "/tmp/x",
+        branch: "main",
+      }),
+    ).toBe(
+      "http://localhost:5477/park?environmentId=env&threadId=thread&title=Title&project=Proj&cwd=%2Ftmp%2Fx&branch=main",
+    );
   });
 
   it("selects the direct STM HMR module on localhost/dev", () => {

@@ -2,7 +2,8 @@
  * Maps Host Contract v1 widget CustomEvents to host action intents.
  * Does not perform UI/side effects — HostedSayToMeVoiceWidget applies them.
  *
- * open-session / park-session stay parsed for contract completeness; host wiring follows.
+ * open-session / park-session are parsed for contract completeness. STM S2 does
+ * not emit them yet; the host still maps them to session URL / `/park` when they arrive.
  */
 
 import {
