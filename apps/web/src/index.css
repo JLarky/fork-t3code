@@ -1580,3 +1580,36 @@ label:has(> select#reasoning-effort) select {
   opacity: 0.3;
   pointer-events: none;
 }
+
+/*
+ * Say To Me liftSolid widget (S-theme). STM injects light token defaults into a
+ * head <style> and never reads prefers-color-scheme. Use higher-specificity host
+ * selectors so T3 theme tokens win after that injection. Float offsets match the
+ * chat-column mount (top-2 / 10px).
+ */
+:root say-to-me-voice-widget,
+html say-to-me-voice-widget {
+  --stm-bg: color-mix(in srgb, var(--card) 88%, var(--background));
+  --stm-fg: var(--foreground);
+  --stm-muted: var(--muted-foreground);
+  --stm-border: var(--border);
+  --stm-surface: color-mix(in srgb, var(--background) 72%, transparent);
+  --stm-accent: var(--primary);
+  --stm-accent-fg: var(--primary-foreground);
+  --stm-danger: var(--destructive);
+  --stm-radius: var(--radius);
+  --stm-shadow: 0 8px 24px color-mix(in srgb, var(--foreground) 12%, transparent);
+  --stm-font: inherit;
+  --stm-max-width: 28rem;
+  --stm-focus-ring: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+  --stm-float-top: 0.5rem;
+  --stm-float-right: 10px;
+  --stm-float-z: 30;
+}
+
+html.dark say-to-me-voice-widget,
+.dark say-to-me-voice-widget {
+  --stm-bg: color-mix(in srgb, var(--card) 94%, var(--background));
+  --stm-surface: color-mix(in srgb, var(--background) 55%, transparent);
+  --stm-shadow: 0 10px 28px color-mix(in srgb, var(--color-black) 45%, transparent);
+}

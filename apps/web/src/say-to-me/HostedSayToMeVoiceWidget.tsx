@@ -9,16 +9,21 @@ import { useSoundUnlock } from "./useSoundUnlock";
 import { voiceNotesSessionId } from "./voiceSessionId";
 import {
   loadSayToMeVoiceWidgetHmrModuleOnce,
+  readSayToMeVoiceWidgetCollapsedPreference,
   resolveSayToMeVoiceWidgetLoader,
   SAY_TO_ME_VOICE_WIDGET_COLLAPSE_EVENT,
   SAY_TO_ME_VOICE_WIDGET_COLLAPSE_STORAGE_KEY,
   SAY_TO_ME_VOICE_WIDGET_ERROR_EVENT,
   SAY_TO_ME_VOICE_WIDGET_INSERT_USAGE_PROMPT_EVENT,
+  SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING,
   SAY_TO_ME_VOICE_WIDGET_NOTES_BASE_URL,
   SAY_TO_ME_VOICE_WIDGET_PERMISSION_ISSUE_EVENT,
   SAY_TO_ME_VOICE_WIDGET_PLAYBACK_CHANGE_EVENT,
   SAY_TO_ME_VOICE_WIDGET_SRC,
   sayToMeVoiceWidgetCanAutoplayAttr,
+  sayToMeVoiceWidgetContextAttrs,
+  sayToMeVoiceWidgetHostPanelClass,
+  sayToMeVoiceWidgetHostSectionClass,
   type SayToMeVoiceWidgetLoader,
 } from "./voiceWidget";
 import { parseSayToMeVoiceWidgetHostEvent } from "./voiceWidgetHostAdapter";
@@ -26,6 +31,14 @@ import { parseSayToMeVoiceWidgetHostEvent } from "./voiceWidgetHostAdapter";
 type HostedSayToMeVoiceWidgetProps = {
   readonly environmentId: string;
   readonly threadId: string;
+  /** Canonical thread title → `session-title` (S-theme display-only). */
+  readonly sessionTitle?: string | null;
+  /** Canonical project display name → `project-name`. */
+  readonly projectName?: string | null;
+  /** Active workspace / worktree cwd → `working-directory`. */
+  readonly workingDirectory?: string | null;
+  /** Thread branch → `branch-name`. */
+  readonly branchName?: string | null;
   /** Composer insertion using the exact event `prompt` (Host Contract v1). */
   readonly onInsertUsagePrompt?: (prompt: string) => void;
   /** Optional override for tests; defaults to hostname/dev selection. */
@@ -34,12 +47,15 @@ type HostedSayToMeVoiceWidgetProps = {
 
 /**
  * Thin T3 host for STM's liftSolid `<say-to-me-voice-widget>`.
- * Host supplies Contract v1 attributes + applies S2 host-side event actions.
- * open-session/park-session are unused by STM S2 (title via ui-base-url; park not emitted).
+ * Supplies Contract v1 + S-theme attributes and applies host-side event actions.
  */
 export function HostedSayToMeVoiceWidget({
   environmentId,
   threadId,
+  sessionTitle = null,
+  projectName = null,
+  workingDirectory = null,
+  branchName = null,
   onInsertUsagePrompt,
   loader = resolveSayToMeVoiceWidgetLoader(),
 }: HostedSayToMeVoiceWidgetProps) {
@@ -48,8 +64,15 @@ export function HostedSayToMeVoiceWidget({
   const canAutoplay = soundEnabled || hasAutoplayPermission();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [activeLoader, setActiveLoader] = useState<SayToMeVoiceWidgetLoader>(loader);
+  const [collapsed, setCollapsed] = useState(() => readSayToMeVoiceWidgetCollapsedPreference());
   const [collapsedAck, setCollapsedAck] = useState<boolean | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const contextAttrs = sayToMeVoiceWidgetContextAttrs({
+    sessionTitle,
+    projectName,
+    workingDirectory,
+    branchName,
+  });
 
   useEffect(() => {
     setActiveLoader(loader);
@@ -77,6 +100,7 @@ export function HostedSayToMeVoiceWidget({
       switch (action.type) {
         case "collapse-change":
           console.info("[say-to-me-voice-widget] collapse-change", action);
+          setCollapsed(action.collapsed);
           setCollapsedAck(action.collapsed);
           break;
         case "error":
@@ -88,7 +112,6 @@ export function HostedSayToMeVoiceWidget({
           break;
         case "open-session":
         case "park-session":
-          // STM S2 does not emit these; no shared host callback shapes yet.
           break;
         case "permission-issue":
           reportPermissionIssue();
@@ -124,9 +147,10 @@ export function HostedSayToMeVoiceWidget({
       data-testid="say-to-me-voice-widget-host"
       data-voice-widget-loader-mode={activeLoader.mode}
       data-voice-widget-preferred-loader={loader.mode}
-      className="pointer-events-none absolute top-2 right-[10px] z-30 w-max max-w-[calc(100%-20px)]"
+      data-collapsed={collapsed ? "true" : "false"}
+      className={sayToMeVoiceWidgetHostSectionClass(collapsed)}
     >
-      <div className="pointer-events-auto flex w-[min(28rem,calc(100vw-1.25rem))] flex-col gap-1">
+      <div className={sayToMeVoiceWidgetHostPanelClass(collapsed)}>
         {activeLoader.mode === "hmr" ? (
           <span
             hidden
@@ -136,7 +160,7 @@ export function HostedSayToMeVoiceWidget({
         ) : (
           <script src={activeLoader.scriptSrc} async data-testid="say-to-me-voice-widget-script" />
         )}
-        {/* Empty host element + Contract v1 attributes only — STM owns markup. */}
+        {/* Empty host element + Contract v1 / S-theme attributes — STM owns markup. */}
         <say-to-me-voice-widget
           data-testid="say-to-me-voice-widget-element"
           session-id={sessionId}
@@ -144,6 +168,8 @@ export function HostedSayToMeVoiceWidget({
           can-autoplay={sayToMeVoiceWidgetCanAutoplayAttr(canAutoplay)}
           storage-key={SAY_TO_ME_VOICE_WIDGET_COLLAPSE_STORAGE_KEY}
           ui-base-url={SAY_TO_ME_UI_URL}
+          layout={SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING}
+          {...contextAttrs}
         />
         {showEnableSound ? (
           <div

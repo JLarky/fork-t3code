@@ -33,6 +33,9 @@ import {
   SAY_TO_ME_VOICE_WIDGET_SRC,
   SAY_TO_ME_VOICE_WIDGET_TAG,
   sayToMeVoiceWidgetCanAutoplayAttr,
+  sayToMeVoiceWidgetContextAttrs,
+  sayToMeVoiceWidgetHostPanelClass,
+  sayToMeVoiceWidgetHostSectionClass,
 } from "./voiceWidget";
 
 const base = {
@@ -56,6 +59,31 @@ describe("Say To Me liftSolid voice widget loader", () => {
     expect(SAY_TO_ME_VOICE_WIDGET_S1_LIMITATION).toMatch(/S2\/S3/i);
     expect(sayToMeVoiceWidgetCanAutoplayAttr(true)).toBe("1");
     expect(sayToMeVoiceWidgetCanAutoplayAttr(false)).toBe("0");
+  });
+
+  it("keeps collapsed floating mounts shrink-to-fit like the legacy banner", () => {
+    for (const className of [
+      sayToMeVoiceWidgetHostSectionClass(true),
+      sayToMeVoiceWidgetHostPanelClass(true),
+    ]) {
+      expect(className).toContain("w-max");
+      expect(className.split(" ").filter((token) => token.startsWith("w-["))).toEqual([]);
+    }
+    expect(sayToMeVoiceWidgetHostSectionClass(true)).toContain("absolute top-2 right-[10px]");
+  });
+
+  it("builds S-theme context attrs without blanks", () => {
+    expect(
+      sayToMeVoiceWidgetContextAttrs({
+        sessionTitle: " Thread ",
+        projectName: "",
+        workingDirectory: "/tmp/x",
+        branchName: null,
+      }),
+    ).toEqual({
+      "session-title": "Thread",
+      "working-directory": "/tmp/x",
+    });
   });
 
   it("selects the direct STM HMR module on localhost/dev", () => {

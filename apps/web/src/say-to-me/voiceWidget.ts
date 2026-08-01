@@ -8,6 +8,20 @@ export const SAY_TO_ME_VOICE_WIDGET_HMR_MODULE_URL =
 export const SAY_TO_ME_VOICE_WIDGET_TAG = "say-to-me-voice-widget";
 export const SAY_TO_ME_VOICE_WIDGET_NOTES_BASE_URL = "/api/voice-notes";
 
+/** Same-origin T3 proxy for Jarvis timers (STM `/api/jarvis-timers`). */
+export const SAY_TO_ME_VOICE_WIDGET_TIMERS_BASE_URL = "/api/say-to-me-timers";
+
+/** S-theme layout wire value used by T3 chat (STM default). */
+export const SAY_TO_ME_VOICE_WIDGET_LAYOUT_FLOATING = "floating" as const;
+
+/** S-theme optional context attributes (display-only; do not refetch notes). */
+export const SAY_TO_ME_VOICE_WIDGET_CONTEXT_ATTRIBUTES = [
+  "session-title",
+  "project-name",
+  "working-directory",
+  "branch-name",
+] as const;
+
 /**
  * Collapse preference key — shared with the legacy banner so S1 inherits existing
  * collapsed preferences when replacing that runtime path.
@@ -70,6 +84,11 @@ declare global {
           "storage-key"?: string;
           "ui-base-url"?: string;
           "timers-base-url"?: string;
+          layout?: "floating" | "inline";
+          "session-title"?: string;
+          "project-name"?: string;
+          "working-directory"?: string;
+          "branch-name"?: string;
         };
       }
     }
@@ -160,6 +179,101 @@ export function __resetSayToMeVoiceWidgetHmrLoaderForTests(): void {
 /** Strict Host Contract attribute value for can-autoplay (1 or 0 only). */
 export function sayToMeVoiceWidgetCanAutoplayAttr(canAutoplay: boolean): "1" | "0" {
   return canAutoplay ? "1" : "0";
+}
+
+/**
+ * Outer host mount classes — parity with legacy `sayToMeBannerSectionClass`.
+ * Collapsed floating must stay `w-max` (no fixed `w-[…]`) so the card does not
+ * reserve chat-column width while absolute-positioned over the timeline.
+ */
+export function sayToMeVoiceWidgetHostSectionClass(collapsed: boolean): string {
+  return collapsed
+    ? "pointer-events-none absolute top-2 right-[10px] z-30 w-max max-w-[calc(100%-20px)] short:top-1"
+    : "pointer-events-none absolute top-2 right-[10px] z-30 w-max max-w-[min(calc(100%-20px),28rem)] short:top-1";
+}
+
+/** Inner interactive panel: shrink-to-fit when collapsed; capped width when expanded. */
+export function sayToMeVoiceWidgetHostPanelClass(collapsed: boolean): string {
+  return collapsed
+    ? "pointer-events-auto flex w-max max-w-[calc(100%-20px)] flex-col gap-1"
+    : "pointer-events-auto flex w-[min(28rem,calc(100vw-1.25rem))] max-w-[calc(100%-20px)] flex-col gap-1";
+}
+
+/** Trim optional S-theme context attrs; omit blanks so STM skips empty chips. */
+export function sayToMeVoiceWidgetContextAttrs(input: {
+  readonly sessionTitle?: string | null;
+  readonly projectName?: string | null;
+  readonly workingDirectory?: string | null;
+  readonly branchName?: string | null;
+}): {
+  readonly "session-title"?: string;
+  readonly "project-name"?: string;
+  readonly "working-directory"?: string;
+  readonly "branch-name"?: string;
+} {
+  const attrs: {
+    "session-title"?: string;
+    "project-name"?: string;
+    "working-directory"?: string;
+    "branch-name"?: string;
+  } = {};
+  const sessionTitle = input.sessionTitle?.trim();
+  const projectName = input.projectName?.trim();
+  const workingDirectory = input.workingDirectory?.trim();
+  const branchName = input.branchName?.trim();
+  if (sessionTitle) attrs["session-title"] = sessionTitle;
+  if (projectName) attrs["project-name"] = projectName;
+  if (workingDirectory) attrs["working-directory"] = workingDirectory;
+  if (branchName) attrs["branch-name"] = branchName;
+  return attrs;
+}
+
+/** Read shared collapse preference before the first widget collapse-change event. */
+export function readSayToMeVoiceWidgetCollapsedPreference(
+  storageKey: string = SAY_TO_ME_VOICE_WIDGET_COLLAPSE_STORAGE_KEY,
+): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    return raw === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Exact legacy / host copy-mention text. Keep this format if the host ever
+ * consumes a copy action so agent prompts stay byte-compatible.
+ */
+export function formatSayToMeSessionMention(sessionId: string, alias?: string | null): string {
+  const id = sessionId.trim();
+  const label = alias?.trim();
+  return label ? `say-to-me(${id}, ${label})` : `say-to-me(${id})`;
+}
+
+/** Canonical `/park` navigation used by legacy banner and park-session host action. */
+export function buildSayToMeParkUrl(input: {
+  readonly origin: string;
+  readonly environmentId: string;
+  readonly threadId: string;
+  readonly title?: string | null;
+  readonly project?: string | null;
+  readonly cwd?: string | null;
+  readonly branch?: string | null;
+}): string {
+  const url = new URL("/park", input.origin);
+  url.searchParams.set("environmentId", input.environmentId);
+  url.searchParams.set("threadId", input.threadId);
+  for (const [key, value] of [
+    ["title", input.title],
+    ["project", input.project],
+    ["cwd", input.cwd],
+    ["branch", input.branch],
+  ] as const) {
+    const trimmed = value?.trim();
+    if (trimmed) url.searchParams.set(key, trimmed);
+  }
+  return url.toString();
 }
 
 function isWidgetBaseDetail(

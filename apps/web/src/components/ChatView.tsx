@@ -5721,6 +5721,10 @@ function ChatViewContent(props: ChatViewProps) {
                   key={`${activeThread.environmentId}:${activeThread.id}`}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
+                  sessionTitle={activeThread.title}
+                  projectName={activeProject?.title ?? null}
+                  workingDirectory={activeWorkspaceRoot ?? gitCwd ?? null}
+                  branchName={activeThreadBranch}
                   onInsertUsagePrompt={insertSayToMeUsagePrompt}
                 />
               ) : null}
