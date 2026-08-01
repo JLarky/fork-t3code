@@ -5,8 +5,8 @@ import {
   importSayToMeParkButtonHmrModule,
   resolveSayToMeParkButtonHmrModuleUrl,
   SAY_TO_ME_PARK_BUTTON_EVENT,
+  SAY_TO_ME_PARK_BUTTON_SRC,
   SAY_TO_ME_PARK_BUTTON_TAG,
-  sayToMeParkButtonClassicScriptSrc,
   type ParkSessionContext,
 } from "./parkButton";
 
@@ -30,7 +30,6 @@ export function SayToMeParkButtonHost({
 }: SayToMeParkButtonHostProps) {
   const hostRef = useRef<HTMLSpanElement | null>(null);
   const hmrModuleUrl = resolveSayToMeParkButtonHmrModuleUrl();
-  const classicScriptSrc = sayToMeParkButtonClassicScriptSrc(hmrModuleUrl);
 
   useEffect(() => {
     if (hmrModuleUrl === null) return;
@@ -66,8 +65,8 @@ export function SayToMeParkButtonHost({
       data-testid="say-to-me-park-button-host"
       className="inline-flex shrink-0 items-center justify-center"
     >
-      {classicScriptSrc ? (
-        <script src={classicScriptSrc} async data-testid="say-to-me-park-button-script" />
+      {hmrModuleUrl === null ? (
+        <script src={SAY_TO_ME_PARK_BUTTON_SRC} async data-testid="say-to-me-park-button-script" />
       ) : null}
       {createElement(SAY_TO_ME_PARK_BUTTON_TAG, {
         "session-id": sessionId,

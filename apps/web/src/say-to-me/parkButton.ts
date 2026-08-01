@@ -57,11 +57,6 @@ export function resolveSayToMeParkButtonHmrModuleUrl(input?: {
   }
 }
 
-/** The classic script is mutually exclusive with direct STM HMR delivery. */
-export function sayToMeParkButtonClassicScriptSrc(hmrModuleUrl: string | null): string | null {
-  return hmrModuleUrl === null ? SAY_TO_ME_PARK_BUTTON_SRC : null;
-}
-
 export function importSayToMeParkButtonHmrModule(
   moduleUrl: string,
   importModule: (url: string) => Promise<unknown> = (url) => import(/* @vite-ignore */ url),

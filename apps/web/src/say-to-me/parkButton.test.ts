@@ -11,7 +11,6 @@ import {
   SAY_TO_ME_PARK_BUTTON_EVENT,
   SAY_TO_ME_PARK_BUTTON_SRC,
   SAY_TO_ME_PARK_BUTTON_TAG,
-  sayToMeParkButtonClassicScriptSrc,
 } from "./parkButton";
 
 describe("Say To Me Park button host adapter", () => {
@@ -33,7 +32,6 @@ describe("Say To Me Park button host adapter", () => {
       stmOrigin: "http://localhost:5413/",
     });
     expect(moduleUrl).toBe("http://localhost:5413/server/embed/solid/park-button-hmr.ts");
-    expect(sayToMeParkButtonClassicScriptSrc(moduleUrl)).toBeNull();
 
     const importModule = vi.fn(async () => undefined);
     await importSayToMeParkButtonHmrModule(moduleUrl!, importModule);
@@ -54,7 +52,6 @@ describe("Say To Me Park button host adapter", () => {
     ]) {
       const moduleUrl = resolveSayToMeParkButtonHmrModuleUrl(input);
       expect(moduleUrl).toBeNull();
-      expect(sayToMeParkButtonClassicScriptSrc(moduleUrl)).toBe(SAY_TO_ME_PARK_BUTTON_SRC);
     }
   });
 
