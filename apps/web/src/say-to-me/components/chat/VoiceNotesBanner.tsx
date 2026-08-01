@@ -20,6 +20,7 @@ import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPan
 import { useSayToMeTimers } from "../timers/useSayToMeTimers";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
+import { SayToMeParkButtonHost } from "../../SayToMeParkButtonHost";
 import { useSoundUnlock } from "../../useSoundUnlock";
 import { voiceNotesSessionId } from "../../voiceSessionId";
 
@@ -700,29 +701,15 @@ export function VoiceNotesBanner({
                     "ID"
                   )}
                 </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  aria-label="Park session"
-                  title="Park session"
-                  className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
-                  onClick={() => {
-                    const url = new URL("/park", window.location.origin);
-                    url.searchParams.set("environmentId", environmentId);
-                    url.searchParams.set("threadId", threadId);
-                    for (const [key, value] of [
-                      ["title", sessionTitle],
-                      ["project", projectName],
-                      ["cwd", workingDirectory],
-                      ["branch", branchName],
-                    ] as const) {
-                      if (value) url.searchParams.set(key, value);
-                    }
-                    window.location.assign(url);
-                  }}
-                >
-                  P
-                </Button>
+                <SayToMeParkButtonHost
+                  sessionId={sessionId}
+                  environmentId={environmentId}
+                  threadId={threadId}
+                  title={sessionTitle}
+                  project={projectName}
+                  cwd={workingDirectory}
+                  branch={branchName}
+                />
                 {!collapsed ? (
                   <Button
                     size="icon-xs"
