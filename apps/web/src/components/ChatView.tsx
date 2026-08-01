@@ -219,8 +219,7 @@ import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
-import { VoiceNotesBanner } from "../say-to-me/components/chat/VoiceNotesBanner";
-import { voiceNotesSessionId } from "../say-to-me/voiceSessionId";
+import { HostedSayToMeVoiceWidget } from "../say-to-me/HostedSayToMeVoiceWidget";
 import { useIdleCompletionDing } from "../say-to-me/useIdleCompletionDing";
 import { ChatHeader } from "./chat/ChatHeader";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "./chat/PanelLayoutControls";
@@ -2516,21 +2515,14 @@ function ChatViewContent(props: ChatViewProps) {
       focusComposer();
     });
   }, [focusComposer]);
-  const insertSayToMeUsagePrompt = useCallback(() => {
-    if (!activeThread) return;
-    const sessionId = voiceNotesSessionId(environmentId, activeThread.id);
-    setComposerDraftPrompt(
-      composerDraftTarget,
-      `you have to reply to my messages with voice (cli \`say-to-me usage\` to learn how/why) and your session id is ${sessionId}`,
-    );
-    scheduleComposerFocus();
-  }, [
-    activeThread,
-    composerDraftTarget,
-    environmentId,
-    scheduleComposerFocus,
-    setComposerDraftPrompt,
-  ]);
+  /** Host Contract `insert-usage-prompt` — insert the exact event prompt into the composer. */
+  const insertSayToMeUsagePrompt = useCallback(
+    (prompt: string) => {
+      setComposerDraftPrompt(composerDraftTarget, prompt);
+      scheduleComposerFocus();
+    },
+    [composerDraftTarget, scheduleComposerFocus, setComposerDraftPrompt],
+  );
   const addTerminalContextToDraft = useCallback(
     (selection: TerminalContextSelection) => {
       composerRef.current?.addTerminalContext(selection);
@@ -5725,14 +5717,10 @@ function ChatViewContent(props: ChatViewProps) {
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
               {!isDraftHeroState ? (
-                <VoiceNotesBanner
+                <HostedSayToMeVoiceWidget
                   key={`${activeThread.environmentId}:${activeThread.id}`}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
-                  sessionTitle={activeThread.title}
-                  projectName={activeProject?.title}
-                  workingDirectory={activeWorkspaceRoot}
-                  branchName={activeThread.branch}
                   onInsertUsagePrompt={insertSayToMeUsagePrompt}
                 />
               ) : null}

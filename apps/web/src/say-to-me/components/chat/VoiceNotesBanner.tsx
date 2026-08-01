@@ -1,3 +1,8 @@
+/**
+ * Legacy T3 Say To Me banner — parity reference only.
+ * Runtime chat UI mounts liftSolid `<say-to-me-voice-widget>` via HostedSayToMeVoiceWidget.
+ * Keep this module and its tests for behavioral comparison; do not re-wire as the default path.
+ */
 import { useEffect, useRef, useState } from "react";
 import * as Schema from "effect/Schema";
 import {

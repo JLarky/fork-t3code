@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { __resetAudioQueueForTests, delay, enqueueSound } from "./audioQueue";
+import {
+  __resetAudioQueueForTests,
+  delay,
+  enqueueSound,
+  isSpeechActive,
+  setVoiceWidgetPlaybackActive,
+} from "./audioQueue";
 
 afterEach(() => {
   __resetAudioQueueForTests();
@@ -57,5 +63,15 @@ describe("enqueueSound", () => {
     );
 
     expect(events).toEqual(["next:start"]);
+  });
+});
+
+describe("setVoiceWidgetPlaybackActive", () => {
+  it("marks speech active so idle ding policy can wait on widget playback", () => {
+    expect(isSpeechActive()).toBe(false);
+    setVoiceWidgetPlaybackActive(true);
+    expect(isSpeechActive()).toBe(true);
+    setVoiceWidgetPlaybackActive(false);
+    expect(isSpeechActive()).toBe(false);
   });
 });

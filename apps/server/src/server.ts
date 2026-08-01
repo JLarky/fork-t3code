@@ -16,6 +16,7 @@ import {
   sayToMeTimerActionProxyRouteLayer,
   sayToMeTimerDeleteProxyRouteLayer,
 } from "./say-to-me/voiceNotesProxy.ts";
+import { sayToMeEmbedVoiceWidgetProxyRouteLayer } from "./say-to-me/embedVoiceWidgetProxy.ts";
 import {
   t3SpacesClaimProxyRouteLayer,
   t3SpacesListProxyRouteLayer,
@@ -386,6 +387,7 @@ export const makeRoutesLayer = Layer.mergeAll(
     sayToMeTimerUpdateProxyRouteLayer,
     sayToMeTimerActionProxyRouteLayer,
     sayToMeTimerDeleteProxyRouteLayer,
+    sayToMeEmbedVoiceWidgetProxyRouteLayer,
     t3SpacesListProxyRouteLayer,
     t3SpacesClaimProxyRouteLayer,
     t3SpacesReleaseProxyRouteLayer,

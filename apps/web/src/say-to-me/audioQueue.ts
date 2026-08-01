@@ -11,6 +11,9 @@
 
 let tail: Promise<unknown> = Promise.resolve();
 
+/** Host-side playback gate from `<say-to-me-voice-widget>` `playback-change`. */
+let voiceWidgetPlaybackActive = false;
+
 export function delay(durationMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, durationMs));
 }
@@ -47,8 +50,17 @@ export function enqueueSound(
   return next;
 }
 
-/** True while the browser is speaking or has speech queued. */
+/**
+ * Marks widget-owned voice playback so the idle completion ding waits, matching
+ * the same policy used for `speechSynthesis` speech.
+ */
+export function setVoiceWidgetPlaybackActive(active: boolean): void {
+  voiceWidgetPlaybackActive = active;
+}
+
+/** True while the browser is speaking, has speech queued, or the widget is playing. */
 export function isSpeechActive(): boolean {
+  if (voiceWidgetPlaybackActive) return true;
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
   const speech = window.speechSynthesis;
   return speech.speaking || speech.pending;
@@ -56,4 +68,5 @@ export function isSpeechActive(): boolean {
 
 export function __resetAudioQueueForTests(): void {
   tail = Promise.resolve();
+  voiceWidgetPlaybackActive = false;
 }
