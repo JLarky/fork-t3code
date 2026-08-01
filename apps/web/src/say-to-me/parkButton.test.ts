@@ -6,6 +6,7 @@ import {
   buildParkSessionUrl,
   isSayToMeParkSessionDetail,
   isSayToMeParkSessionEvent,
+  resolveParkButtonHostStatus,
   SAY_TO_ME_PARK_BUTTON_EVENT,
   SAY_TO_ME_PARK_BUTTON_SRC,
   SAY_TO_ME_PARK_BUTTON_TAG,
@@ -171,6 +172,17 @@ describe("Say To Me Park button host adapter", () => {
         "https://t3.example/park?environmentId=env-1&threadId=thread-1&title=Park+me&branch=main",
       ),
     );
+  });
+
+  it("resolves custom-element availability when already defined without loading", async () => {
+    await expect(
+      resolveParkButtonHostStatus({
+        loadScript: async () => {
+          throw new Error("should not load");
+        },
+        isElementDefined: () => true,
+      }),
+    ).resolves.toEqual({ mode: "custom-element" });
   });
 
   it("does not navigate when the mounted host sessionId is missing/blank", () => {

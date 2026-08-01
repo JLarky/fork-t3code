@@ -101,3 +101,114 @@ export function assignParkSessionFromEvent(
   assignParkSessionUrl(context);
   return true;
 }
+
+/** Host availability for the STM park-button custom element. */
+export type ParkButtonHostStatus =
+  | { readonly mode: "custom-element" }
+  | {
+      readonly mode: "fallback";
+      readonly reason: "pending" | "script-load-failed" | "element-undefined";
+    };
+
+export const PARK_BUTTON_ELEMENT_WAIT_MS = 3_000;
+
+export type ResolveParkButtonHostStatusDeps = {
+  readonly scriptSrc?: string;
+  readonly loadScript?: (src: string) => Promise<void>;
+  readonly isElementDefined?: () => boolean;
+  readonly whenElementDefined?: () => Promise<unknown>;
+  readonly timeoutMs?: number;
+};
+
+export function isSayToMeParkButtonElementDefined(
+  registry: {
+    get(name: string): CustomElementConstructor | undefined;
+  } = customElements,
+): boolean {
+  return registry.get(SAY_TO_ME_PARK_BUTTON_TAG) !== undefined;
+}
+
+/** Load the fixed same-origin park-button script once. */
+export function loadSayToMeParkButtonScript(
+  src: string = SAY_TO_ME_PARK_BUTTON_SRC,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error("document unavailable"));
+      return;
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") {
+        resolve();
+        return;
+      }
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
+        once: true,
+      });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.dataset.testid = "say-to-me-park-button-script";
+    script.addEventListener(
+      "load",
+      () => {
+        script.dataset.loaded = "true";
+        resolve();
+      },
+      { once: true },
+    );
+    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Resolve whether the STM park-button custom element is usable.
+ * On script/definition failure, callers keep the legacy Park fallback visible.
+ */
+export async function resolveParkButtonHostStatus(
+  deps: ResolveParkButtonHostStatusDeps = {},
+): Promise<Exclude<ParkButtonHostStatus, { reason: "pending" }>> {
+  const isElementDefined = deps.isElementDefined ?? (() => isSayToMeParkButtonElementDefined());
+  if (isElementDefined()) {
+    return { mode: "custom-element" };
+  }
+
+  const loadScript = deps.loadScript ?? loadSayToMeParkButtonScript;
+  try {
+    await loadScript(deps.scriptSrc ?? SAY_TO_ME_PARK_BUTTON_SRC);
+  } catch {
+    return { mode: "fallback", reason: "script-load-failed" };
+  }
+
+  if (isElementDefined()) {
+    return { mode: "custom-element" };
+  }
+
+  const whenElementDefined =
+    deps.whenElementDefined ?? (() => customElements.whenDefined(SAY_TO_ME_PARK_BUTTON_TAG));
+  const timeoutMs = deps.timeoutMs ?? PARK_BUTTON_ELEMENT_WAIT_MS;
+
+  try {
+    await Promise.race([
+      whenElementDefined(),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("park-button element timeout")), timeoutMs);
+      }),
+    ]);
+  } catch {
+    return { mode: "fallback", reason: "element-undefined" };
+  }
+
+  return isElementDefined()
+    ? { mode: "custom-element" }
+    : { mode: "fallback", reason: "element-undefined" };
+}
