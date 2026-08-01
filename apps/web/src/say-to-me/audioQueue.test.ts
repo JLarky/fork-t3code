@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { __resetAudioQueueForTests, delay, enqueueSound } from "./audioQueue";
+import {
+  __resetAudioQueueForTests,
+  delay,
+  enqueueSound,
+  isSpeechActive,
+  setVoiceWidgetPlaybackActive,
+} from "./audioQueue";
 
 afterEach(() => {
   __resetAudioQueueForTests();
@@ -57,5 +63,41 @@ describe("enqueueSound", () => {
     );
 
     expect(events).toEqual(["next:start"]);
+  });
+});
+
+describe("setVoiceWidgetPlaybackActive", () => {
+  it("marks speech active so idle ding policy can wait on widget playback", () => {
+    expect(isSpeechActive()).toBe(false);
+    setVoiceWidgetPlaybackActive(true);
+    expect(isSpeechActive()).toBe(true);
+    setVoiceWidgetPlaybackActive(false);
+    expect(isSpeechActive()).toBe(false);
+  });
+
+  it("suppresses queued idle ding until playback-change clears, then restores it", async () => {
+    const events: string[] = [];
+    setVoiceWidgetPlaybackActive(true);
+
+    const ding = enqueueSound(
+      async () => {
+        while (isSpeechActive()) {
+          events.push("wait");
+          await delay(15);
+        }
+        events.push("ding");
+      },
+      { timeoutMs: 2000 },
+    );
+
+    await delay(40);
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((event) => event === "wait")).toBe(true);
+    expect(events).not.toContain("ding");
+
+    setVoiceWidgetPlaybackActive(false);
+    await ding;
+    expect(events.at(-1)).toBe("ding");
+    expect(isSpeechActive()).toBe(false);
   });
 });

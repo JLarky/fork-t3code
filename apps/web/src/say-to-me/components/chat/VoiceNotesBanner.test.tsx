@@ -1,3 +1,7 @@
+/**
+ * Parity reference tests for the legacy VoiceNotesBanner.
+ * Runtime chat UI uses HostedSayToMeVoiceWidget (liftSolid S1) instead.
+ */
 import { renderToStaticMarkup } from "react-dom/server";
 import * as Schema from "effect/Schema";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -27,7 +31,7 @@ afterEach(() => {
   removeLocalStorageItem(SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY);
 });
 
-describe("Say To Me section", () => {
+describe("Say To Me section (legacy parity reference)", () => {
   it("treats Say To Me SQLite timestamps as UTC", () => {
     expect(normalizeSayToMeTimestamp("2026-07-26 19:17:58")).toBe("2026-07-26T19:17:58Z");
     expect(new Date(normalizeSayToMeTimestamp("2026-07-26 19:17:58")).toISOString()).toBe(
