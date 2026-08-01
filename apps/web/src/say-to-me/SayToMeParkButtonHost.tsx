@@ -2,6 +2,8 @@ import { createElement, useEffect, useRef } from "react";
 
 import {
   assignParkSessionFromEvent,
+  importSayToMeParkButtonHmrModule,
+  resolveSayToMeParkButtonHmrModuleUrl,
   SAY_TO_ME_PARK_BUTTON_EVENT,
   SAY_TO_ME_PARK_BUTTON_SRC,
   SAY_TO_ME_PARK_BUTTON_TAG,
@@ -14,8 +16,8 @@ type SayToMeParkButtonHostProps = ParkSessionContext & {
 
 /**
  * Tiny host for STM `<say-to-me-park-button>`.
- * Loads the fixed same-origin proxied script and runs legacy /park navigation
- * only after a validated bubbling/composed `say-to-me-park-session` event.
+ * Loads the direct STM Vite module in explicit localhost development, otherwise
+ * the fixed same-origin script. Navigation still requires a validated event.
  */
 export function SayToMeParkButtonHost({
   sessionId,
@@ -27,6 +29,14 @@ export function SayToMeParkButtonHost({
   branch,
 }: SayToMeParkButtonHostProps) {
   const hostRef = useRef<HTMLSpanElement | null>(null);
+  const hmrModuleUrl = resolveSayToMeParkButtonHmrModuleUrl();
+
+  useEffect(() => {
+    if (hmrModuleUrl === null) return;
+    void importSayToMeParkButtonHmrModule(hmrModuleUrl).catch((error: unknown) => {
+      console.error("[say-to-me-park-button] Failed to import STM HMR module", error);
+    });
+  }, [hmrModuleUrl]);
 
   useEffect(() => {
     const node = hostRef.current;
@@ -55,7 +65,9 @@ export function SayToMeParkButtonHost({
       data-testid="say-to-me-park-button-host"
       className="inline-flex shrink-0 items-center justify-center"
     >
-      <script src={SAY_TO_ME_PARK_BUTTON_SRC} async data-testid="say-to-me-park-button-script" />
+      {hmrModuleUrl === null ? (
+        <script src={SAY_TO_ME_PARK_BUTTON_SRC} async data-testid="say-to-me-park-button-script" />
+      ) : null}
       {createElement(SAY_TO_ME_PARK_BUTTON_TAG, {
         "session-id": sessionId,
         "data-testid": "say-to-me-park-button-element",
