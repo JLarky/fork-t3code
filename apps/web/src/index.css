@@ -1613,3 +1613,177 @@ html.dark say-to-me-voice-widget,
   --stm-surface: color-mix(in srgb, var(--background) 55%, transparent);
   --stm-shadow: 0 10px 28px color-mix(in srgb, var(--color-black) 45%, transparent);
 }
+
+/*
+ * STM injects server-sanitized HTML into `.stm-md` (widget-owned). Hosts restyle
+ * that semantic tree only — no host markdown renderer / innerHTML.
+ */
+:root say-to-me-voice-widget .stm-md,
+html say-to-me-voice-widget .stm-md {
+  color: var(--stm-fg);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+:root say-to-me-voice-widget .stm-md--compact,
+html say-to-me-voice-widget .stm-md--compact {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+:root say-to-me-voice-widget .stm-md--compact > :first-child,
+html say-to-me-voice-widget .stm-md--compact > :first-child {
+  margin-top: 0;
+}
+
+:root say-to-me-voice-widget .stm-md--compact > :last-child,
+html say-to-me-voice-widget .stm-md--compact > :last-child {
+  margin-bottom: 0;
+}
+
+:root say-to-me-voice-widget .stm-md p,
+html say-to-me-voice-widget .stm-md p {
+  margin: 0 0 0.4rem;
+}
+
+:root say-to-me-voice-widget .stm-md p:last-child,
+html say-to-me-voice-widget .stm-md p:last-child {
+  margin-bottom: 0;
+}
+
+:root say-to-me-voice-widget .stm-md--compact p,
+html say-to-me-voice-widget .stm-md--compact p {
+  margin-bottom: 0.25rem;
+}
+
+:root say-to-me-voice-widget .stm-md a,
+html say-to-me-voice-widget .stm-md a {
+  color: var(--stm-accent);
+  text-decoration: none;
+}
+
+:root say-to-me-voice-widget .stm-md a:hover,
+:root say-to-me-voice-widget .stm-md a:focus-visible,
+html say-to-me-voice-widget .stm-md a:hover,
+html say-to-me-voice-widget .stm-md a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+
+:root say-to-me-voice-widget .stm-md code,
+html say-to-me-voice-widget .stm-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+  padding: 0.05em 0.3em;
+  border-radius: calc(var(--stm-radius) - 2px);
+  background: color-mix(in srgb, var(--stm-fg) 8%, var(--stm-surface));
+}
+
+:root say-to-me-voice-widget .stm-md pre,
+html say-to-me-voice-widget .stm-md pre {
+  margin: 0.4rem 0;
+  overflow: auto;
+  padding: 0.4rem 0.5rem;
+  border-radius: calc(var(--stm-radius) - 2px);
+  border: 1px solid var(--stm-border);
+  background: color-mix(in srgb, var(--stm-fg) 6%, var(--stm-surface));
+}
+
+:root say-to-me-voice-widget .stm-md pre code,
+html say-to-me-voice-widget .stm-md pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
+}
+
+:root say-to-me-voice-widget .stm-md--compact pre,
+html say-to-me-voice-widget .stm-md--compact pre {
+  margin: 0.25rem 0;
+  padding: 0.3rem 0.4rem;
+}
+
+:root say-to-me-voice-widget .stm-md ul,
+:root say-to-me-voice-widget .stm-md ol,
+html say-to-me-voice-widget .stm-md ul,
+html say-to-me-voice-widget .stm-md ol {
+  margin: 0.35rem 0;
+  padding-left: 1.15rem;
+}
+
+:root say-to-me-voice-widget .stm-md ul,
+html say-to-me-voice-widget .stm-md ul {
+  list-style-type: disc;
+}
+
+:root say-to-me-voice-widget .stm-md ol,
+html say-to-me-voice-widget .stm-md ol {
+  list-style-type: decimal;
+}
+
+:root say-to-me-voice-widget .stm-md li + li,
+html say-to-me-voice-widget .stm-md li + li {
+  margin-top: 0.15rem;
+}
+
+:root say-to-me-voice-widget .stm-md--compact ul,
+:root say-to-me-voice-widget .stm-md--compact ol,
+html say-to-me-voice-widget .stm-md--compact ul,
+html say-to-me-voice-widget .stm-md--compact ol {
+  margin: 0.2rem 0;
+  padding-left: 1rem;
+}
+
+:root say-to-me-voice-widget .stm-md blockquote,
+html say-to-me-voice-widget .stm-md blockquote {
+  margin: 0.4rem 0;
+  border-left: 2px solid var(--stm-border);
+  padding-left: 0.65rem;
+  color: var(--stm-muted);
+}
+
+:root say-to-me-voice-widget .stm-md--compact blockquote,
+html say-to-me-voice-widget .stm-md--compact blockquote {
+  margin: 0.25rem 0;
+  padding-left: 0.5rem;
+}
+
+:root say-to-me-voice-widget .stm-md table,
+html say-to-me-voice-widget .stm-md table {
+  width: 100%;
+  margin: 0.4rem 0;
+  border-collapse: collapse;
+  font-size: 11px;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+:root say-to-me-voice-widget .stm-md th,
+:root say-to-me-voice-widget .stm-md td,
+html say-to-me-voice-widget .stm-md th,
+html say-to-me-voice-widget .stm-md td {
+  padding: 0.3rem 0.45rem;
+  text-align: left;
+  border-bottom: 1px solid color-mix(in srgb, var(--stm-border) 70%, transparent);
+}
+
+:root say-to-me-voice-widget .stm-md thead th,
+html say-to-me-voice-widget .stm-md thead th {
+  font-weight: 600;
+  color: var(--stm-fg);
+  white-space: nowrap;
+}
+
+:root say-to-me-voice-widget .stm-md--compact table,
+html say-to-me-voice-widget .stm-md--compact table {
+  margin: 0.25rem 0;
+  font-size: 10px;
+}
+
+:root say-to-me-voice-widget .stm-md--compact th,
+:root say-to-me-voice-widget .stm-md--compact td,
+html say-to-me-voice-widget .stm-md--compact th,
+html say-to-me-voice-widget .stm-md--compact td {
+  padding: 0.2rem 0.35rem;
+}
