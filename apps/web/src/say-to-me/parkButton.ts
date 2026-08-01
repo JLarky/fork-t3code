@@ -1,6 +1,8 @@
 /** Same-origin proxied URL for the STM Park-button custom-element script. */
 export const SAY_TO_ME_PARK_BUTTON_SRC = "/api/say-to-me/embed/park-button.js";
 
+const SAY_TO_ME_PARK_BUTTON_HMR_PATH = "/server/embed/solid/park-button-hmr.ts";
+
 export const SAY_TO_ME_PARK_BUTTON_TAG = "say-to-me-park-button";
 export const SAY_TO_ME_PARK_BUTTON_EVENT = "say-to-me-park-session";
 
@@ -22,6 +24,50 @@ export type ParkSessionContext = {
   readonly cwd?: string | null | undefined;
   readonly branch?: string | null | undefined;
 };
+
+function isLocalHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+/** Direct STM Vite module URL for explicitly configured localhost development. */
+export function resolveSayToMeParkButtonHmrModuleUrl(input?: {
+  readonly isDev?: boolean;
+  readonly hostname?: string;
+  readonly stmOrigin?: string;
+}): string | null {
+  const isDev = input?.isDev ?? import.meta.env.DEV;
+  const hostname =
+    input?.hostname ?? (typeof window === "undefined" ? "" : window.location.hostname);
+  const stmOrigin = input?.stmOrigin ?? import.meta.env.VITE_SAY_TO_ME_DEV_ORIGIN;
+  if (!isDev || !isLocalHostname(hostname) || !stmOrigin?.trim()) {
+    return null;
+  }
+
+  try {
+    const origin = new URL(stmOrigin);
+    if (
+      (origin.protocol !== "http:" && origin.protocol !== "https:") ||
+      !isLocalHostname(origin.hostname)
+    ) {
+      return null;
+    }
+    return new URL(SAY_TO_ME_PARK_BUTTON_HMR_PATH, origin.origin).toString();
+  } catch {
+    return null;
+  }
+}
+
+/** The classic script is mutually exclusive with direct STM HMR delivery. */
+export function sayToMeParkButtonClassicScriptSrc(hmrModuleUrl: string | null): string | null {
+  return hmrModuleUrl === null ? SAY_TO_ME_PARK_BUTTON_SRC : null;
+}
+
+export function importSayToMeParkButtonHmrModule(
+  moduleUrl: string,
+  importModule: (url: string) => Promise<unknown> = (url) => import(/* @vite-ignore */ url),
+): Promise<unknown> {
+  return importModule(moduleUrl);
+}
 
 /** Strict check for the park-session CustomEvent detail payload. */
 export function isSayToMeParkSessionDetail(detail: unknown, expectedSessionId?: string): boolean {
