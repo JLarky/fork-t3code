@@ -128,46 +128,118 @@ export function isSayToMeParkButtonElementDefined(
   return registry.get(SAY_TO_ME_PARK_BUTTON_TAG) !== undefined;
 }
 
-/** Load the fixed same-origin park-button script once. */
+const PARK_BUTTON_SCRIPT_SRC_ATTR = "data-park-button-src";
+
+/** In-flight loads keyed by script URL — concurrent mounts share one request. */
+const parkButtonScriptLoads = new Map<string, Promise<void>>();
+
+export type ParkButtonScriptElement = {
+  src: string;
+  async: boolean;
+  dataset: DOMStringMap | Record<string, string | undefined>;
+  setAttribute(name: string, value: string): void;
+  addEventListener(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  remove(): void;
+};
+
+export type ParkButtonScriptDocument = {
+  querySelector(selectors: string): ParkButtonScriptElement | null;
+  createElement(tagName: "script"): ParkButtonScriptElement;
+  head: { appendChild(node: ParkButtonScriptElement): ParkButtonScriptElement };
+};
+
+function parkButtonScriptDocument(): ParkButtonScriptDocument {
+  if (typeof document === "undefined") {
+    throw new Error("document unavailable");
+  }
+  return document as unknown as ParkButtonScriptDocument;
+}
+
+function findParkButtonScript(
+  doc: ParkButtonScriptDocument,
+  src: string,
+): ParkButtonScriptElement | null {
+  return (
+    doc.querySelector(`script[${PARK_BUTTON_SCRIPT_SRC_ATTR}="${src}"]`) ??
+    // COMPAT: older host inserts used src= only and could hang after error.
+    doc.querySelector(`script[src="${src}"]`)
+  );
+}
+
+/**
+ * Load the fixed same-origin park-button script.
+ * Concurrent callers share one in-flight promise. Failed scripts are marked and
+ * removed on the next attempt so remounts retry instead of hanging on a stale tag.
+ */
 export function loadSayToMeParkButtonScript(
   src: string = SAY_TO_ME_PARK_BUTTON_SRC,
+  doc: ParkButtonScriptDocument = parkButtonScriptDocument(),
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (typeof document === "undefined") {
-      reject(new Error("document unavailable"));
-      return;
-    }
+  const inflight = parkButtonScriptLoads.get(src);
+  if (inflight) {
+    return inflight;
+  }
 
-    const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
-    if (existing) {
-      if (existing.dataset.loaded === "true") {
+  const loadPromise = new Promise<void>((resolve, reject) => {
+    try {
+      const existing = findParkButtonScript(doc, src);
+      if (existing?.dataset.loaded === "true") {
         resolve();
         return;
       }
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
-        once: true,
-      });
-      return;
-    }
 
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.dataset.testid = "say-to-me-park-button-script";
-    script.addEventListener(
-      "load",
-      () => {
-        script.dataset.loaded = "true";
-        resolve();
-      },
-      { once: true },
-    );
-    script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), {
-      once: true,
-    });
-    document.head.appendChild(script);
+      // Prior failure (or an unmarked stuck tag): drop it and retry with a fresh script.
+      if (existing) {
+        existing.remove();
+      }
+
+      const script = doc.createElement("script");
+      script.src = src;
+      script.async = true;
+      script.setAttribute(PARK_BUTTON_SCRIPT_SRC_ATTR, src);
+      script.dataset.testid = "say-to-me-park-button-script";
+      script.addEventListener(
+        "load",
+        () => {
+          script.dataset.loaded = "true";
+          delete script.dataset.failed;
+          resolve();
+        },
+        { once: true },
+      );
+      script.addEventListener(
+        "error",
+        () => {
+          script.dataset.failed = "true";
+          reject(new Error(`Failed to load ${src}`));
+        },
+        { once: true },
+      );
+      doc.head.appendChild(script);
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
   });
+
+  parkButtonScriptLoads.set(src, loadPromise);
+  void loadPromise
+    .finally(() => {
+      if (parkButtonScriptLoads.get(src) === loadPromise) {
+        parkButtonScriptLoads.delete(src);
+      }
+    })
+    // Callers observe `loadPromise` directly; don't surface a second rejection.
+    .catch(() => undefined);
+  return loadPromise;
+}
+
+/** Test-only: clear in-flight script bookkeeping between cases. */
+export function resetParkButtonScriptLoadsForTests(): void {
+  parkButtonScriptLoads.clear();
 }
 
 /**
