@@ -2,13 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SayToMeParkButtonHost } from "./SayToMeParkButtonHost";
-import { resolveSayToMeParkButtonHmrModuleUrl } from "./parkButton";
+import { sayToMeParkButtonModuleUrl } from "./parkButton";
 
 vi.mock("./parkButton", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./parkButton")>();
   return {
     ...actual,
-    resolveSayToMeParkButtonHmrModuleUrl: vi.fn(),
+    sayToMeParkButtonModuleUrl: vi.fn(),
   };
 });
 
@@ -19,27 +19,25 @@ function renderHost(): string {
 }
 
 afterEach(() => {
-  vi.mocked(resolveSayToMeParkButtonHmrModuleUrl).mockReset();
+  vi.mocked(sayToMeParkButtonModuleUrl).mockReset();
 });
 
 describe("SayToMeParkButtonHost delivery", () => {
-  it("mounts only the custom element when direct HMR delivery is selected", () => {
-    vi.mocked(resolveSayToMeParkButtonHmrModuleUrl).mockReturnValue(
-      "http://localhost:5413/server/embed/solid/park-button-hmr.ts",
+  it("mounts only the custom element for direct STM delivery", () => {
+    vi.mocked(sayToMeParkButtonModuleUrl).mockReturnValue(
+      "http://localhost:5413/embed/park-button.js",
     );
 
     const markup = renderHost();
     expect(markup).toContain("<say-to-me-park-button");
-    expect(markup).not.toContain("say-to-me-park-button-script");
-    expect(markup).not.toContain("/api/say-to-me/embed/park-button.js");
+    expect(markup).not.toContain("<script");
   });
 
-  it("mounts the fixed classic script and the same custom element otherwise", () => {
-    vi.mocked(resolveSayToMeParkButtonHmrModuleUrl).mockReturnValue(null);
+  it("mounts the identical markup for proxied delivery", () => {
+    vi.mocked(sayToMeParkButtonModuleUrl).mockReturnValue("/api/say-to-me/embed/park-button.js");
 
     const markup = renderHost();
     expect(markup).toContain("<say-to-me-park-button");
-    expect(markup).toContain('data-testid="say-to-me-park-button-script"');
-    expect(markup).toContain('src="/api/say-to-me/embed/park-button.js"');
+    expect(markup).not.toContain("<script");
   });
 });
