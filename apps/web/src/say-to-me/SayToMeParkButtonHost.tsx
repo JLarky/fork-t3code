@@ -16,7 +16,7 @@ type SayToMeParkButtonHostProps = ParkSessionContext & {
 
 /**
  * Tiny host for STM `<say-to-me-park-button>`.
- * Loads the direct STM Vite module in explicit localhost development, otherwise
+ * Loads the direct STM Vite module in configured localhost development, otherwise
  * the fixed same-origin script. Navigation still requires a validated event.
  */
 export function SayToMeParkButtonHost({

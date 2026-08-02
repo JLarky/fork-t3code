@@ -29,7 +29,7 @@ function isLocalHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
-/** Direct STM Vite module URL for explicitly configured localhost development. */
+/** Direct STM Vite module URL for configured localhost development. */
 export function resolveSayToMeParkButtonHmrModuleUrl(input?: {
   readonly isDev?: boolean;
   readonly hostname?: string;
