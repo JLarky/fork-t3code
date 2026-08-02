@@ -1,18 +1,18 @@
-/** Same-origin proxied URL for the STM Park-button custom-element script. */
-export const SAY_TO_ME_PARK_BUTTON_SRC = "/api/say-to-me/embed/park-button.js";
+/** Same-origin proxied URL for the STM widget custom-element script. */
+export const SAY_TO_ME_WIDGET_SRC = "/api/say-to-me/embed/widget.js";
 
-const SAY_TO_ME_PARK_BUTTON_HMR_PATH = "/server/embed/solid/park-button-hmr.ts";
+const SAY_TO_ME_WIDGET_HMR_PATH = "/server/embed/solid/widget-hmr.ts";
 
-export const SAY_TO_ME_PARK_BUTTON_TAG = "say-to-me-park-button";
-export const SAY_TO_ME_PARK_BUTTON_EVENT = "say-to-me-park-session";
+export const SAY_TO_ME_WIDGET_TAG = "say-to-me-widget";
+export const SAY_TO_ME_PARK_SESSION_EVENT = "say-to-me-park-session";
 
-const PARK_BUTTON_SOURCE = "say-to-me-park-button";
-const PARK_BUTTON_VERSION = 1;
+const WIDGET_SOURCE = "say-to-me-widget";
+const PARK_SESSION_VERSION = 1;
 const PARK_SESSION_TYPE = "park-session";
 
 declare global {
   interface HTMLElementTagNameMap {
-    "say-to-me-park-button": HTMLElement;
+    "say-to-me-widget": HTMLElement;
   }
 }
 
@@ -30,7 +30,7 @@ function isLocalHostname(hostname: string): boolean {
 }
 
 /** Direct STM Vite module URL for configured localhost development. */
-export function resolveSayToMeParkButtonHmrModuleUrl(input?: {
+export function resolveSayToMeWidgetHmrModuleUrl(input?: {
   readonly isDev?: boolean;
   readonly hostname?: string;
   readonly stmOrigin?: string;
@@ -51,13 +51,13 @@ export function resolveSayToMeParkButtonHmrModuleUrl(input?: {
     ) {
       return null;
     }
-    return new URL(SAY_TO_ME_PARK_BUTTON_HMR_PATH, origin.origin).toString();
+    return new URL(SAY_TO_ME_WIDGET_HMR_PATH, origin.origin).toString();
   } catch {
     return null;
   }
 }
 
-export function importSayToMeParkButtonHmrModule(
+export function importSayToMeWidgetHmrModule(
   moduleUrl: string,
   importModule: (url: string) => Promise<unknown> = (url) => import(/* @vite-ignore */ url),
 ): Promise<unknown> {
@@ -71,8 +71,8 @@ export function isSayToMeParkSessionDetail(detail: unknown, expectedSessionId?: 
   }
   const record = detail as Record<string, unknown>;
   if (
-    record.source !== PARK_BUTTON_SOURCE ||
-    record.version !== PARK_BUTTON_VERSION ||
+    record.source !== WIDGET_SOURCE ||
+    record.version !== PARK_SESSION_VERSION ||
     record.type !== PARK_SESSION_TYPE ||
     typeof record.sessionId !== "string" ||
     record.sessionId.trim().length === 0
@@ -87,7 +87,7 @@ export function isSayToMeParkSessionDetail(detail: unknown, expectedSessionId?: 
 
 /** Strict check for the park-session CustomEvent (name + detail). */
 export function isSayToMeParkSessionEvent(event: Event, expectedSessionId?: string): boolean {
-  if (event.type !== SAY_TO_ME_PARK_BUTTON_EVENT) {
+  if (event.type !== SAY_TO_ME_PARK_SESSION_EVENT) {
     return false;
   }
   if (!(event instanceof CustomEvent)) {
