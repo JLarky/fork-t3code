@@ -4,53 +4,53 @@ import {
   assignParkSessionFromEvent,
   assignParkSessionUrl,
   buildParkSessionUrl,
-  importSayToMeParkButtonHmrModule,
+  importSayToMeWidgetHmrModule,
   isSayToMeParkSessionDetail,
   isSayToMeParkSessionEvent,
-  resolveSayToMeParkButtonHmrModuleUrl,
-  SAY_TO_ME_PARK_BUTTON_EVENT,
-  SAY_TO_ME_PARK_BUTTON_SRC,
-  SAY_TO_ME_PARK_BUTTON_TAG,
-} from "./parkButton";
+  resolveSayToMeWidgetHmrModuleUrl,
+  SAY_TO_ME_PARK_SESSION_EVENT,
+  SAY_TO_ME_WIDGET_SRC,
+  SAY_TO_ME_WIDGET_TAG,
+} from "./widget";
 
-describe("Say To Me Park button host adapter", () => {
+describe("Say To Me widget host adapter", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   it("uses the same-origin proxied script path, not the upstream port", () => {
-    expect(SAY_TO_ME_PARK_BUTTON_SRC).toBe("/api/say-to-me/embed/park-button.js");
-    expect(SAY_TO_ME_PARK_BUTTON_SRC).not.toContain("5411");
-    expect(SAY_TO_ME_PARK_BUTTON_TAG).toBe("say-to-me-park-button");
-    expect(SAY_TO_ME_PARK_BUTTON_EVENT).toBe("say-to-me-park-session");
+    expect(SAY_TO_ME_WIDGET_SRC).toBe("/api/say-to-me/embed/widget.js");
+    expect(SAY_TO_ME_WIDGET_SRC).not.toContain("5411");
+    expect(SAY_TO_ME_WIDGET_TAG).toBe("say-to-me-widget");
+    expect(SAY_TO_ME_PARK_SESSION_EVENT).toBe("say-to-me-park-session");
   });
 
   it("defaults localhost development to the canonical STM Vite origin", () => {
     expect(
-      resolveSayToMeParkButtonHmrModuleUrl({
+      resolveSayToMeWidgetHmrModuleUrl({
         isDev: true,
         hostname: "localhost",
       }),
-    ).toBe("http://localhost:5411/server/embed/solid/park-button-hmr.ts");
+    ).toBe("http://localhost:5411/server/embed/solid/widget-hmr.ts");
   });
 
   it("allows an explicit local STM Vite origin override", async () => {
-    const moduleUrl = resolveSayToMeParkButtonHmrModuleUrl({
+    const moduleUrl = resolveSayToMeWidgetHmrModuleUrl({
       isDev: true,
       hostname: "localhost",
       stmOrigin: "http://localhost:5413/",
     });
-    expect(moduleUrl).toBe("http://localhost:5413/server/embed/solid/park-button-hmr.ts");
+    expect(moduleUrl).toBe("http://localhost:5413/server/embed/solid/widget-hmr.ts");
 
     const importModule = vi.fn(async () => undefined);
-    await importSayToMeParkButtonHmrModule(moduleUrl!, importModule);
+    await importSayToMeWidgetHmrModule(moduleUrl!, importModule);
     expect(importModule).toHaveBeenCalledOnce();
     expect(importModule).toHaveBeenCalledWith(moduleUrl);
   });
 
   it("uses the fixed classic script in production", () => {
     expect(
-      resolveSayToMeParkButtonHmrModuleUrl({
+      resolveSayToMeWidgetHmrModuleUrl({
         isDev: false,
         hostname: "localhost",
         stmOrigin: "http://localhost:5413",
@@ -60,7 +60,7 @@ describe("Say To Me Park button host adapter", () => {
 
   it("uses the fixed classic script for a non-local browser", () => {
     expect(
-      resolveSayToMeParkButtonHmrModuleUrl({
+      resolveSayToMeWidgetHmrModuleUrl({
         isDev: true,
         hostname: "lima-default.tail052173.ts.net",
         stmOrigin: "http://localhost:5413",
@@ -70,7 +70,7 @@ describe("Say To Me Park button host adapter", () => {
 
   it("allows an explicit empty override to disable direct HMR", () => {
     expect(
-      resolveSayToMeParkButtonHmrModuleUrl({
+      resolveSayToMeWidgetHmrModuleUrl({
         isDev: true,
         hostname: "localhost",
         stmOrigin: "",
@@ -86,7 +86,7 @@ describe("Say To Me Park button host adapter", () => {
       "http://localhost.example.com:5411",
     ]) {
       expect(
-        resolveSayToMeParkButtonHmrModuleUrl({
+        resolveSayToMeWidgetHmrModuleUrl({
           isDev: true,
           hostname: "localhost",
           stmOrigin,
@@ -98,7 +98,7 @@ describe("Say To Me Park button host adapter", () => {
   it("accepts only the exact park-session detail shape", () => {
     expect(
       isSayToMeParkSessionDetail({
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "park-session",
         sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
@@ -114,7 +114,7 @@ describe("Say To Me Park button host adapter", () => {
     ).toBe(false);
     expect(
       isSayToMeParkSessionDetail({
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 2,
         type: "park-session",
         sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
@@ -122,7 +122,7 @@ describe("Say To Me Park button host adapter", () => {
     ).toBe(false);
     expect(
       isSayToMeParkSessionDetail({
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "open-session",
         sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
@@ -130,7 +130,7 @@ describe("Say To Me Park button host adapter", () => {
     ).toBe(false);
     expect(
       isSayToMeParkSessionDetail({
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "park-session",
         sessionId: "   ",
@@ -138,7 +138,7 @@ describe("Say To Me Park button host adapter", () => {
     ).toBe(false);
     expect(
       isSayToMeParkSessionDetail({
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "park-session",
       }),
@@ -149,11 +149,11 @@ describe("Say To Me Park button host adapter", () => {
   it("requires the CustomEvent name and detail together", () => {
     expect(
       isSayToMeParkSessionEvent(
-        new CustomEvent(SAY_TO_ME_PARK_BUTTON_EVENT, {
+        new CustomEvent(SAY_TO_ME_PARK_SESSION_EVENT, {
           bubbles: true,
           composed: true,
           detail: {
-            source: "say-to-me-park-button",
+            source: "say-to-me-widget",
             version: 1,
             type: "park-session",
             sessionId: "t3_thread",
@@ -167,7 +167,7 @@ describe("Say To Me Park button host adapter", () => {
           bubbles: true,
           composed: true,
           detail: {
-            source: "say-to-me-park-button",
+            source: "say-to-me-widget",
             version: 1,
             type: "park-session",
             sessionId: "t3_thread",
@@ -175,7 +175,7 @@ describe("Say To Me Park button host adapter", () => {
         }),
       ),
     ).toBe(false);
-    expect(isSayToMeParkSessionEvent(new Event(SAY_TO_ME_PARK_BUTTON_EVENT))).toBe(false);
+    expect(isSayToMeParkSessionEvent(new Event(SAY_TO_ME_PARK_SESSION_EVENT))).toBe(false);
   });
 
   it("builds the exact legacy /park URL with required and optional fields", () => {
@@ -254,11 +254,11 @@ describe("Say To Me Park button host adapter", () => {
       },
     });
 
-    const event = new CustomEvent(SAY_TO_ME_PARK_BUTTON_EVENT, {
+    const event = new CustomEvent(SAY_TO_ME_PARK_SESSION_EVENT, {
       bubbles: true,
       composed: true,
       detail: {
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "park-session",
         sessionId: "t3_other-session",
@@ -290,11 +290,11 @@ describe("Say To Me Park button host adapter", () => {
     });
 
     const mountedSessionId = "t3_mounted-session";
-    const mismatchedEvent = new CustomEvent(SAY_TO_ME_PARK_BUTTON_EVENT, {
+    const mismatchedEvent = new CustomEvent(SAY_TO_ME_PARK_SESSION_EVENT, {
       bubbles: true,
       composed: true,
       detail: {
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "park-session",
         sessionId: "t3_other-session",
@@ -312,11 +312,11 @@ describe("Say To Me Park button host adapter", () => {
     ).toBe(false);
     expect(assign).not.toHaveBeenCalled();
 
-    const matchingEvent = new CustomEvent(SAY_TO_ME_PARK_BUTTON_EVENT, {
+    const matchingEvent = new CustomEvent(SAY_TO_ME_PARK_SESSION_EVENT, {
       bubbles: true,
       composed: true,
       detail: {
-        source: "say-to-me-park-button",
+        source: "say-to-me-widget",
         version: 1,
         type: "park-session",
         sessionId: mountedSessionId,

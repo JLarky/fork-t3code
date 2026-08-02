@@ -20,7 +20,7 @@ import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPan
 import { useSayToMeTimers } from "../timers/useSayToMeTimers";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
-import { SayToMeParkButtonHost } from "../../SayToMeParkButtonHost";
+import { SayToMeWidgetHost } from "../../SayToMeWidgetHost";
 import { useSoundUnlock } from "../../useSoundUnlock";
 import { voiceNotesSessionId } from "../../voiceSessionId";
 
@@ -701,7 +701,7 @@ export function VoiceNotesBanner({
                     "ID"
                   )}
                 </Button>
-                <SayToMeParkButtonHost
+                <SayToMeWidgetHost
                   sessionId={sessionId}
                   environmentId={environmentId}
                   threadId={threadId}

@@ -2,24 +2,24 @@ import { createElement, useEffect, useRef } from "react";
 
 import {
   assignParkSessionFromEvent,
-  importSayToMeParkButtonHmrModule,
-  resolveSayToMeParkButtonHmrModuleUrl,
-  SAY_TO_ME_PARK_BUTTON_EVENT,
-  SAY_TO_ME_PARK_BUTTON_SRC,
-  SAY_TO_ME_PARK_BUTTON_TAG,
+  importSayToMeWidgetHmrModule,
+  resolveSayToMeWidgetHmrModuleUrl,
+  SAY_TO_ME_PARK_SESSION_EVENT,
+  SAY_TO_ME_WIDGET_SRC,
+  SAY_TO_ME_WIDGET_TAG,
   type ParkSessionContext,
-} from "./parkButton";
+} from "./widget";
 
-type SayToMeParkButtonHostProps = ParkSessionContext & {
+type SayToMeWidgetHostProps = ParkSessionContext & {
   readonly sessionId: string;
 };
 
 /**
- * Tiny host for STM `<say-to-me-park-button>`.
+ * Tiny host for STM `<say-to-me-widget>`.
  * Loads the direct STM Vite module in configured localhost development, otherwise
  * the fixed same-origin script. Navigation still requires a validated event.
  */
-export function SayToMeParkButtonHost({
+export function SayToMeWidgetHost({
   sessionId,
   environmentId,
   threadId,
@@ -27,14 +27,14 @@ export function SayToMeParkButtonHost({
   project,
   cwd,
   branch,
-}: SayToMeParkButtonHostProps) {
+}: SayToMeWidgetHostProps) {
   const hostRef = useRef<HTMLSpanElement | null>(null);
-  const hmrModuleUrl = resolveSayToMeParkButtonHmrModuleUrl();
+  const hmrModuleUrl = resolveSayToMeWidgetHmrModuleUrl();
 
   useEffect(() => {
     if (hmrModuleUrl === null) return;
-    void importSayToMeParkButtonHmrModule(hmrModuleUrl).catch((error: unknown) => {
-      console.error("[say-to-me-park-button] Failed to import STM HMR module", error);
+    void importSayToMeWidgetHmrModule(hmrModuleUrl).catch((error: unknown) => {
+      console.error("[say-to-me-widget] Failed to import STM HMR module", error);
     });
   }, [hmrModuleUrl]);
 
@@ -53,24 +53,24 @@ export function SayToMeParkButtonHost({
       });
     };
 
-    node.addEventListener(SAY_TO_ME_PARK_BUTTON_EVENT, onParkSession);
+    node.addEventListener(SAY_TO_ME_PARK_SESSION_EVENT, onParkSession);
     return () => {
-      node.removeEventListener(SAY_TO_ME_PARK_BUTTON_EVENT, onParkSession);
+      node.removeEventListener(SAY_TO_ME_PARK_SESSION_EVENT, onParkSession);
     };
   }, [sessionId, environmentId, threadId, title, project, cwd, branch]);
 
   return (
     <span
       ref={hostRef}
-      data-testid="say-to-me-park-button-host"
+      data-testid="say-to-me-widget-host"
       className="inline-flex shrink-0 items-center justify-center"
     >
       {hmrModuleUrl === null ? (
-        <script src={SAY_TO_ME_PARK_BUTTON_SRC} async data-testid="say-to-me-park-button-script" />
+        <script src={SAY_TO_ME_WIDGET_SRC} async data-testid="say-to-me-widget-script" />
       ) : null}
-      {createElement(SAY_TO_ME_PARK_BUTTON_TAG, {
+      {createElement(SAY_TO_ME_WIDGET_TAG, {
         "session-id": sessionId,
-        "data-testid": "say-to-me-park-button-element",
+        "data-testid": "say-to-me-widget-element",
       })}
     </span>
   );
