@@ -70,7 +70,8 @@ describe("Say To Me section", () => {
     expect(markup).toContain('class="hover:underline">Say To Me</a>');
     expect(markup).toContain('data-testid="say-to-me-widget-host"');
     expect(markup).toContain('src="/api/say-to-me/embed/widget.js"');
-    expect(markup).toContain("say-to-me-widget");
+    expect(markup.match(/<say-to-me-widget\b/g)).toHaveLength(1);
+    expect(markup).not.toContain('aria-label="Copy Say To Me session mention"');
     expect(markup).not.toContain('aria-label="Park session"');
     expect(markup).toContain('aria-label="Play most recent voice note"');
     expect(markup).toContain('data-speaking="false"');

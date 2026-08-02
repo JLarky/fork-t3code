@@ -401,8 +401,6 @@ export function VoiceNotesBanner({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [timersOpen, setTimersOpen] = useState(false);
-  const { copyToClipboard: copySessionMention, isCopied: isSessionMentionCopied } =
-    useCopyToClipboard({ target: "session mention" });
   const { showEnableSound, enableSound, reportPermissionIssue } = useSoundUnlock();
   const { timers, now: timerNow, refresh: refreshTimers } = useSayToMeTimers(sessionId);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -687,20 +685,6 @@ export function VoiceNotesBanner({
                 </a>
               </h2>
               <div className="flex shrink-0 items-center gap-1 short:gap-0.5">
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  aria-label="Copy Say To Me session mention"
-                  title="Copy Say To Me session mention"
-                  className="h-6 w-6 shrink-0 justify-center px-0 font-mono text-[10px] text-muted-foreground hover:text-foreground short:h-5 short:w-5 short:text-[9px]"
-                  onClick={() => copySessionMention(`say-to-me(${sessionId})`, undefined)}
-                >
-                  {isSessionMentionCopied ? (
-                    <CheckIcon className="size-3.5 short:size-3" aria-hidden />
-                  ) : (
-                    "ID"
-                  )}
-                </Button>
                 <SayToMeWidgetHost
                   sessionId={sessionId}
                   environmentId={environmentId}
