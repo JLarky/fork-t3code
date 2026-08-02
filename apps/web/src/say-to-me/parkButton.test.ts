@@ -4,13 +4,13 @@ import {
   assignParkSessionFromEvent,
   assignParkSessionUrl,
   buildParkSessionUrl,
-  importSayToMeParkButtonModule,
+  importSayToMeParkButtonHmrModule,
   isSayToMeParkSessionDetail,
   isSayToMeParkSessionEvent,
-  SAY_TO_ME_PARK_BUTTON_EMBED_PATH,
+  resolveSayToMeParkButtonHmrModuleUrl,
   SAY_TO_ME_PARK_BUTTON_EVENT,
+  SAY_TO_ME_PARK_BUTTON_SRC,
   SAY_TO_ME_PARK_BUTTON_TAG,
-  sayToMeParkButtonModuleUrl,
 } from "./parkButton";
 
 describe("Say To Me Park button host adapter", () => {
@@ -18,27 +18,28 @@ describe("Say To Me Park button host adapter", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses one stable embed path in every environment", () => {
-    expect(SAY_TO_ME_PARK_BUTTON_EMBED_PATH).toBe("/embed/park-button.js");
+  it("uses the same-origin proxied script path, not the upstream port", () => {
+    expect(SAY_TO_ME_PARK_BUTTON_SRC).toBe("/api/say-to-me/embed/park-button.js");
+    expect(SAY_TO_ME_PARK_BUTTON_SRC).not.toContain("5411");
     expect(SAY_TO_ME_PARK_BUTTON_TAG).toBe("say-to-me-park-button");
     expect(SAY_TO_ME_PARK_BUTTON_EVENT).toBe("say-to-me-park-session");
   });
 
-  it("targets the direct STM origin for explicit localhost development", async () => {
-    const moduleUrl = sayToMeParkButtonModuleUrl({
+  it("selects only the direct STM Vite module for explicit localhost development", async () => {
+    const moduleUrl = resolveSayToMeParkButtonHmrModuleUrl({
       isDev: true,
       hostname: "localhost",
       stmOrigin: "http://localhost:5413/",
     });
-    expect(moduleUrl).toBe("http://localhost:5413/embed/park-button.js");
+    expect(moduleUrl).toBe("http://localhost:5413/server/embed/solid/park-button-hmr.ts");
 
     const importModule = vi.fn(async () => undefined);
-    await importSayToMeParkButtonModule(moduleUrl, importModule);
+    await importSayToMeParkButtonHmrModule(moduleUrl!, importModule);
     expect(importModule).toHaveBeenCalledOnce();
     expect(importModule).toHaveBeenCalledWith(moduleUrl);
   });
 
-  it("targets the same-origin authenticated proxy everywhere else", () => {
+  it("selects only the fixed classic script for production and non-local delivery", () => {
     for (const input of [
       { isDev: false, hostname: "localhost", stmOrigin: "http://localhost:5413" },
       {
@@ -48,11 +49,9 @@ describe("Say To Me Park button host adapter", () => {
       },
       { isDev: true, hostname: "localhost" },
       { isDev: true, hostname: "localhost", stmOrigin: "https://say.example.com" },
-      { isDev: true, hostname: "localhost", stmOrigin: "not a url" },
     ]) {
-      const moduleUrl = sayToMeParkButtonModuleUrl(input);
-      expect(moduleUrl).toBe("/api/say-to-me/embed/park-button.js");
-      expect(moduleUrl).not.toContain("5411");
+      const moduleUrl = resolveSayToMeParkButtonHmrModuleUrl(input);
+      expect(moduleUrl).toBeNull();
     }
   });
 

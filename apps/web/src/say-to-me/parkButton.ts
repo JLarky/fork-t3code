@@ -1,8 +1,7 @@
-/** Stable embed path STM serves in every environment (dev Vite shim or esbuild bundle). */
-export const SAY_TO_ME_PARK_BUTTON_EMBED_PATH = "/embed/park-button.js";
+/** Same-origin proxied URL for the STM Park-button custom-element script. */
+export const SAY_TO_ME_PARK_BUTTON_SRC = "/api/say-to-me/embed/park-button.js";
 
-/** Same-origin authenticated proxy prefix for non-local delivery. */
-const SAY_TO_ME_PROXY_BASE = "/api/say-to-me";
+const SAY_TO_ME_PARK_BUTTON_HMR_PATH = "/server/embed/solid/park-button-hmr.ts";
 
 export const SAY_TO_ME_PARK_BUTTON_TAG = "say-to-me-park-button";
 export const SAY_TO_ME_PARK_BUTTON_EVENT = "say-to-me-park-session";
@@ -30,40 +29,35 @@ function isLocalHostname(hostname: string): boolean {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
 }
 
-/**
- * One URL for every environment: the direct STM origin in explicitly configured
- * localhost development (STM's dev server answers the stable path with a Vite
- * module shim, so edits hot-update without a host reload), otherwise the same
- * stable path behind the same-origin authenticated proxy.
- */
-export function sayToMeParkButtonModuleUrl(input?: {
+/** Direct STM Vite module URL for explicitly configured localhost development. */
+export function resolveSayToMeParkButtonHmrModuleUrl(input?: {
   readonly isDev?: boolean;
   readonly hostname?: string;
   readonly stmOrigin?: string;
-}): string {
+}): string | null {
   const isDev = input?.isDev ?? import.meta.env.DEV;
   const hostname =
     input?.hostname ?? (typeof window === "undefined" ? "" : window.location.hostname);
   const stmOrigin = input?.stmOrigin ?? import.meta.env.VITE_SAY_TO_ME_DEV_ORIGIN;
-
-  if (isDev && isLocalHostname(hostname) && stmOrigin?.trim()) {
-    try {
-      const origin = new URL(stmOrigin);
-      if (
-        (origin.protocol === "http:" || origin.protocol === "https:") &&
-        isLocalHostname(origin.hostname)
-      ) {
-        return new URL(SAY_TO_ME_PARK_BUTTON_EMBED_PATH, origin.origin).toString();
-      }
-    } catch {
-      // Invalid configured origin falls through to the proxied path.
-    }
+  if (!isDev || !isLocalHostname(hostname) || !stmOrigin?.trim()) {
+    return null;
   }
 
-  return `${SAY_TO_ME_PROXY_BASE}${SAY_TO_ME_PARK_BUTTON_EMBED_PATH}`;
+  try {
+    const origin = new URL(stmOrigin);
+    if (
+      (origin.protocol !== "http:" && origin.protocol !== "https:") ||
+      !isLocalHostname(origin.hostname)
+    ) {
+      return null;
+    }
+    return new URL(SAY_TO_ME_PARK_BUTTON_HMR_PATH, origin.origin).toString();
+  } catch {
+    return null;
+  }
 }
 
-export function importSayToMeParkButtonModule(
+export function importSayToMeParkButtonHmrModule(
   moduleUrl: string,
   importModule: (url: string) => Promise<unknown> = (url) => import(/* @vite-ignore */ url),
 ): Promise<unknown> {
