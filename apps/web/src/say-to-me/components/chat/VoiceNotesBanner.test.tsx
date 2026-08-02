@@ -7,7 +7,8 @@ import {
   claimVoiceNoteForAutoplay,
   formatSayToMeTimestamp,
   imageAttachmentThumbnail,
-  latestVoiceNoteExtraMarkdown,
+  latestVoiceNoteExtraMarkdownHtml,
+  VoiceNoteExtraMarkdown,
   mostRecentVoiceNote,
   normalizeSayToMeTimestamp,
   SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
@@ -22,6 +23,11 @@ import {
   removeLocalStorageItem,
   setLocalStorageItem,
 } from "~/hooks/useLocalStorage";
+
+const serverSanitizedExtraMarkdownHtml =
+  '<h2>Latest</h2><p>Safe details.</p><table><tbody><tr><td>Passed</td></tr></tbody></table><p><a href="https://example.com" target="_blank" rel="noopener noreferrer">Safe link</a></p>';
+const rawExtraMarkdownWithUnsafeInput =
+  "## Latest\n\n<script>alert(1)</script>\n\n[unsafe](javascript:alert(1))";
 
 afterEach(() => {
   removeLocalStorageItem(SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY);
@@ -169,11 +175,43 @@ describe("Say To Me section", () => {
     expect(mostRecentVoiceNote([{ id: "newer" }, { id: "older" }])).toEqual({ id: "newer" });
   });
 
-  it("only surfaces extra markdown from the newest note in the collapsed banner", () => {
+  it("only surfaces server-rendered HTML from the newest note in the collapsed banner", () => {
     expect(
-      latestVoiceNoteExtraMarkdown([{ extraMarkdown: "## Latest" }, { extraMarkdown: "## Older" }]),
-    ).toBe("## Latest");
-    expect(latestVoiceNoteExtraMarkdown([{ extraMarkdown: null }])).toBeNull();
+      latestVoiceNoteExtraMarkdownHtml([
+        { extraMarkdownHtml: serverSanitizedExtraMarkdownHtml },
+        { extraMarkdownHtml: "<p>Older</p>" },
+      ]),
+    ).toBe(serverSanitizedExtraMarkdownHtml);
+    expect(latestVoiceNoteExtraMarkdownHtml([{ extraMarkdownHtml: null }])).toBeNull();
+    expect(latestVoiceNoteExtraMarkdownHtml([{ extraMarkdownHtml: "   " }])).toBeNull();
+  });
+
+  it("renders STM sanitized HTML in both expanded and compact note markdown", () => {
+    const markup = renderToStaticMarkup(
+      <>
+        <VoiceNoteExtraMarkdown
+          html={serverSanitizedExtraMarkdownHtml}
+          markdown={rawExtraMarkdownWithUnsafeInput}
+        />
+        <VoiceNoteExtraMarkdown html={serverSanitizedExtraMarkdownHtml} compact />
+      </>,
+    );
+
+    expect(markup.match(/data-testid="say-to-me-extra-markdown"/g)).toHaveLength(2);
+    expect(markup).toContain("<table>");
+    expect(markup).toContain('href="https://example.com"');
+    expect(markup).toContain('target="_blank"');
+    expect(markup).not.toContain("javascript:");
+    expect(markup).not.toContain("<script");
+    expect(markup).not.toContain("## Latest");
+  });
+
+  it("does not import ChatMarkdown or parse markdown in this widget", () => {
+    const source = Object.values(
+      import.meta.glob("./VoiceNotesBanner.tsx", { query: "?raw", import: "default", eager: true }),
+    )[0] as string;
+    expect(source).not.toContain("ChatMarkdown");
+    expect(source).not.toContain("markdownToHtml");
   });
 
   it("returns thumbnails for image attachments", () => {

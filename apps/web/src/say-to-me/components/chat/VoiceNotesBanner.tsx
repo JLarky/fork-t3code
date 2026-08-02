@@ -14,7 +14,6 @@ import {
 import { cn } from "~/lib/utils";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
-import ChatMarkdown from "../../../components/ChatMarkdown";
 import { Button } from "../../../components/ui/button";
 import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPanel";
 import { useSayToMeTimers } from "../timers/useSayToMeTimers";
@@ -50,6 +49,7 @@ type VoiceNote = {
   readonly time: string;
   readonly text: string;
   readonly extraMarkdown: string | null;
+  readonly extraMarkdownHtml: string | null;
   readonly status: string;
   readonly attachments: ReadonlyArray<SayToMeAttachment>;
   readonly sessions: ReadonlyArray<SayToMeSession>;
@@ -67,6 +67,7 @@ type SayToMeMessage = {
   readonly author: string;
   readonly text: string;
   readonly extraMarkdown?: string | null;
+  readonly extraMarkdownHtml?: string | null;
   readonly status: string;
   readonly createdAt: string;
   readonly attachments?: ReadonlyArray<SayToMeAttachment>;
@@ -227,11 +228,13 @@ export function claimQueuedNotesForStopAll(
   return stoppedIds;
 }
 
-function VoiceNoteExtraMarkdown({
+export function VoiceNoteExtraMarkdown({
+  html,
   markdown,
   compact = false,
 }: {
-  readonly markdown: string;
+  readonly html: string;
+  readonly markdown?: string | null;
   readonly compact?: boolean;
 }) {
   const { copyToClipboard, isCopied } = useCopyToClipboard({ target: "extra markdown" });
@@ -253,7 +256,7 @@ function VoiceNoteExtraMarkdown({
             aria-label={isCopied ? "Copied extra markdown" : "Copy extra markdown"}
             title={isCopied ? "Copied" : "Copy extra markdown"}
             className="text-muted-foreground hover:text-foreground"
-            onClick={() => copyToClipboard(markdown, undefined)}
+            onClick={() => copyToClipboard(markdown ?? "", undefined)}
           >
             {isCopied ? (
               <CheckIcon className="size-3 text-primary" />
@@ -263,7 +266,12 @@ function VoiceNoteExtraMarkdown({
           </Button>
         </div>
       )}
-      <ChatMarkdown text={markdown} cwd={undefined} className="min-w-0" />
+      {/*
+       * Trust boundary: this HTML is produced by STM's sanitized serializer and
+       * reaches this component through the authenticated same-origin T3 proxy.
+       * Keep this boundary explicit; do not parse raw markdown in this widget.
+       */}
+      <div className="min-w-0" dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }
@@ -367,11 +375,11 @@ export function mostRecentVoiceNote<T>(notes: ReadonlyArray<T>): T | null {
   return notes[0] ?? null;
 }
 
-export function latestVoiceNoteExtraMarkdown(
-  notes: ReadonlyArray<Pick<VoiceNote, "extraMarkdown">>,
+export function latestVoiceNoteExtraMarkdownHtml(
+  notes: ReadonlyArray<Pick<VoiceNote, "extraMarkdownHtml">>,
 ): string | null {
-  const markdown = notes[0]?.extraMarkdown;
-  return typeof markdown === "string" && markdown.trim() ? markdown : null;
+  const html = notes[0]?.extraMarkdownHtml;
+  return typeof html === "string" && html.trim() ? html : null;
 }
 
 type VoiceNotesBannerProps = {
@@ -445,6 +453,7 @@ export function VoiceNotesBanner({
             time: message.createdAt,
             text: message.text,
             extraMarkdown: message.extraMarkdown ?? null,
+            extraMarkdownHtml: message.extraMarkdownHtml ?? null,
             status: message.status,
             attachments: message.attachments ?? [],
             sessions: message.sessions ?? [],
@@ -620,7 +629,7 @@ export function VoiceNotesBanner({
     autoplayLockRef.current = true;
   }, [hasLoadedRemoteNotes, notes, playingId]);
 
-  const latestExtraMarkdown = latestVoiceNoteExtraMarkdown(notes);
+  const latestExtraMarkdownHtml = latestVoiceNoteExtraMarkdownHtml(notes);
   const activeTimers = timers.filter(
     (timer) => timer.status === "active" || timer.status === "paused",
   );
@@ -641,7 +650,7 @@ export function VoiceNotesBanner({
       data-collapsed={collapsed ? "true" : "false"}
       className={sayToMeBannerSectionClass(
         collapsed,
-        latestExtraMarkdown !== null,
+        latestExtraMarkdownHtml !== null,
         collapsedAction !== null || activeTimers.length > 0 || timersOpen,
       )}
     >
@@ -795,8 +804,8 @@ export function VoiceNotesBanner({
           />
         ) : null}
 
-        {collapsed && latestExtraMarkdown !== null ? (
-          <VoiceNoteExtraMarkdown markdown={latestExtraMarkdown} compact />
+        {collapsed && latestExtraMarkdownHtml !== null ? (
+          <VoiceNoteExtraMarkdown html={latestExtraMarkdownHtml} compact />
         ) : null}
 
         {collapsed && collapsedAction !== null ? (
@@ -898,8 +907,12 @@ export function VoiceNotesBanner({
                         <p className="mt-1 text-sm leading-5 short:mt-0.5 short:text-[11px] short:leading-4">
                           {note.text}
                         </p>
-                        {typeof note.extraMarkdown === "string" && note.extraMarkdown.trim() ? (
-                          <VoiceNoteExtraMarkdown markdown={note.extraMarkdown} />
+                        {typeof note.extraMarkdownHtml === "string" &&
+                        note.extraMarkdownHtml.trim() ? (
+                          <VoiceNoteExtraMarkdown
+                            html={note.extraMarkdownHtml}
+                            markdown={note.extraMarkdown}
+                          />
                         ) : null}
                         {note.sessions.map((session) => (
                           <VoiceNoteSessionCard key={session.id} session={session} />
