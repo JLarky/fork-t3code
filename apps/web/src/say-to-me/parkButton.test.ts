@@ -25,7 +25,16 @@ describe("Say To Me Park button host adapter", () => {
     expect(SAY_TO_ME_PARK_BUTTON_EVENT).toBe("say-to-me-park-session");
   });
 
-  it("selects only the direct STM Vite module for explicit localhost development", async () => {
+  it("defaults localhost development to the canonical STM Vite origin", () => {
+    expect(
+      resolveSayToMeParkButtonHmrModuleUrl({
+        isDev: true,
+        hostname: "localhost",
+      }),
+    ).toBe("http://localhost:5411/server/embed/solid/park-button-hmr.ts");
+  });
+
+  it("allows an explicit local STM Vite origin override", async () => {
     const moduleUrl = resolveSayToMeParkButtonHmrModuleUrl({
       isDev: true,
       hostname: "localhost",
@@ -39,19 +48,50 @@ describe("Say To Me Park button host adapter", () => {
     expect(importModule).toHaveBeenCalledWith(moduleUrl);
   });
 
-  it("selects only the fixed classic script for production and non-local delivery", () => {
-    for (const input of [
-      { isDev: false, hostname: "localhost", stmOrigin: "http://localhost:5413" },
-      {
+  it("uses the fixed classic script in production", () => {
+    expect(
+      resolveSayToMeParkButtonHmrModuleUrl({
+        isDev: false,
+        hostname: "localhost",
+        stmOrigin: "http://localhost:5413",
+      }),
+    ).toBeNull();
+  });
+
+  it("uses the fixed classic script for a non-local browser", () => {
+    expect(
+      resolveSayToMeParkButtonHmrModuleUrl({
         isDev: true,
         hostname: "lima-default.tail052173.ts.net",
         stmOrigin: "http://localhost:5413",
-      },
-      { isDev: true, hostname: "localhost" },
-      { isDev: true, hostname: "localhost", stmOrigin: "https://say.example.com" },
+      }),
+    ).toBeNull();
+  });
+
+  it("allows an explicit empty override to disable direct HMR", () => {
+    expect(
+      resolveSayToMeParkButtonHmrModuleUrl({
+        isDev: true,
+        hostname: "localhost",
+        stmOrigin: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects invalid and non-local STM origins", () => {
+    for (const stmOrigin of [
+      "not a URL",
+      "ftp://localhost:5411",
+      "https://say.example.com",
+      "http://localhost.example.com:5411",
     ]) {
-      const moduleUrl = resolveSayToMeParkButtonHmrModuleUrl(input);
-      expect(moduleUrl).toBeNull();
+      expect(
+        resolveSayToMeParkButtonHmrModuleUrl({
+          isDev: true,
+          hostname: "localhost",
+          stmOrigin,
+        }),
+      ).toBeNull();
     }
   });
 

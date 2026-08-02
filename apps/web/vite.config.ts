@@ -23,7 +23,11 @@ const configuredClerkCliOAuthClientId = repoEnv.VITE_CLERK_CLI_OAUTH_CLIENT_ID?.
 const configuredRelayTracingUrl = repoEnv.VITE_RELAY_OTLP_TRACES_URL?.trim() || "";
 const configuredRelayTracingDataset = repoEnv.VITE_RELAY_OTLP_TRACES_DATASET?.trim() || "";
 const configuredRelayTracingToken = repoEnv.VITE_RELAY_OTLP_TRACES_TOKEN?.trim() || "";
-const configuredSayToMeDevOrigin = process.env.VITE_SAY_TO_ME_DEV_ORIGIN?.trim() || "";
+const DEFAULT_SAY_TO_ME_DEV_ORIGIN = "http://localhost:5411";
+const configuredSayToMeDevOrigin =
+  process.env.VITE_SAY_TO_ME_DEV_ORIGIN === undefined
+    ? DEFAULT_SAY_TO_ME_DEV_ORIGIN
+    : process.env.VITE_SAY_TO_ME_DEV_ORIGIN.trim();
 const configuredHostedAppChannel = process.env.VITE_HOSTED_APP_CHANNEL?.trim() || "";
 const configuredAppVersion = process.env.APP_VERSION?.trim() || pkg.version;
 const configuredHostedAppUrl = (() => {
