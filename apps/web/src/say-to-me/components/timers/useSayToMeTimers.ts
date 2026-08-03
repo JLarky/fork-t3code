@@ -45,8 +45,17 @@ async function fetchSayToMeTimers(sessionId: string): Promise<ReadonlyArray<SayT
   return decoded.timers ?? [];
 }
 
-export function useSayToMeTimers(sessionId: string) {
-  const atom = useMemo(() => timersAtom(sessionId), [sessionId]);
+export function useSayToMeTimers(sessionId: string, options?: { readonly disabled?: boolean }) {
+  const disabled = options?.disabled === true;
+  const atom = useMemo(
+    () =>
+      disabled
+        ? Atom.make(Effect.succeed([] as ReadonlyArray<SayToMeTimer>)).pipe(
+            Atom.withLabel("say-to-me:timers:fixture:" + sessionId),
+          )
+        : timersAtom(sessionId),
+    [disabled, sessionId],
+  );
   const result = useAtomValue(atom);
   const refresh = useCallback(() => appAtomRegistry.refresh(atom), [atom]);
   const [now, setNow] = useState(() => Date.now());
@@ -57,18 +66,19 @@ export function useSayToMeTimers(sessionId: string) {
   const hasClock = timers.some((timer) => timer.status === "active" || timer.status === "paused");
 
   useEffect(() => {
+    if (disabled) return;
     const interval = window.setInterval(() => {
       refresh();
       setNow(Date.now());
     }, 15_000);
     return () => window.clearInterval(interval);
-  }, [refresh]);
+  }, [disabled, refresh]);
 
   useEffect(() => {
-    if (!hasClock) return;
+    if (disabled || !hasClock) return;
     const interval = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(interval);
-  }, [hasClock]);
+  }, [disabled, hasClock]);
 
   const error = result._tag === "Failure" ? Cause.squash(result.cause) : null;
   return {

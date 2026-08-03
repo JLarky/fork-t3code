@@ -11,6 +11,10 @@ import {
   SAY_TO_ME_PARK_SESSION_EVENT,
   SAY_TO_ME_WIDGET_SRC,
   SAY_TO_ME_WIDGET_TAG,
+  parseSayToMeWidgetEvent,
+  SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT,
+  SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT,
+  SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT,
 } from "./widget";
 
 describe("Say To Me widget host adapter", () => {
@@ -30,6 +34,7 @@ describe("Say To Me widget host adapter", () => {
       resolveSayToMeWidgetHmrModuleUrl({
         isDev: true,
         hostname: "localhost",
+        stmOrigin: "http://localhost:5411",
       }),
     ).toBe("http://localhost:5411/server/embed/solid/widget-hmr.ts");
   });
@@ -99,7 +104,7 @@ describe("Say To Me widget host adapter", () => {
     expect(
       isSayToMeParkSessionDetail({
         source: "say-to-me-widget",
-        version: 1,
+        version: 2,
         type: "park-session",
         sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
       }),
@@ -107,14 +112,6 @@ describe("Say To Me widget host adapter", () => {
     expect(
       isSayToMeParkSessionDetail({
         source: "say-to-me-web-component",
-        version: 1,
-        type: "park-session",
-        sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
-      }),
-    ).toBe(false);
-    expect(
-      isSayToMeParkSessionDetail({
-        source: "say-to-me-widget",
         version: 2,
         type: "park-session",
         sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
@@ -124,6 +121,14 @@ describe("Say To Me widget host adapter", () => {
       isSayToMeParkSessionDetail({
         source: "say-to-me-widget",
         version: 1,
+        type: "park-session",
+        sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
+      }),
+    ).toBe(false);
+    expect(
+      isSayToMeParkSessionDetail({
+        source: "say-to-me-widget",
+        version: 2,
         type: "open-session",
         sessionId: "t3_2572d5ed-a15b-487f-8102-71a350b357ed",
       }),
@@ -131,7 +136,7 @@ describe("Say To Me widget host adapter", () => {
     expect(
       isSayToMeParkSessionDetail({
         source: "say-to-me-widget",
-        version: 1,
+        version: 2,
         type: "park-session",
         sessionId: "   ",
       }),
@@ -139,7 +144,7 @@ describe("Say To Me widget host adapter", () => {
     expect(
       isSayToMeParkSessionDetail({
         source: "say-to-me-widget",
-        version: 1,
+        version: 2,
         type: "park-session",
       }),
     ).toBe(false);
@@ -154,7 +159,7 @@ describe("Say To Me widget host adapter", () => {
           composed: true,
           detail: {
             source: "say-to-me-widget",
-            version: 1,
+            version: 2,
             type: "park-session",
             sessionId: "t3_thread",
           },
@@ -168,7 +173,7 @@ describe("Say To Me widget host adapter", () => {
           composed: true,
           detail: {
             source: "say-to-me-widget",
-            version: 1,
+            version: 2,
             type: "park-session",
             sessionId: "t3_thread",
           },
@@ -259,7 +264,7 @@ describe("Say To Me widget host adapter", () => {
       composed: true,
       detail: {
         source: "say-to-me-widget",
-        version: 1,
+        version: 2,
         type: "park-session",
         sessionId: "t3_other-session",
       },
@@ -295,7 +300,7 @@ describe("Say To Me widget host adapter", () => {
       composed: true,
       detail: {
         source: "say-to-me-widget",
-        version: 1,
+        version: 2,
         type: "park-session",
         sessionId: "t3_other-session",
       },
@@ -317,7 +322,7 @@ describe("Say To Me widget host adapter", () => {
       composed: true,
       detail: {
         source: "say-to-me-widget",
-        version: 1,
+        version: 2,
         type: "park-session",
         sessionId: mountedSessionId,
       },
@@ -329,5 +334,38 @@ describe("Say To Me widget host adapter", () => {
       }),
     ).toBe(true);
     expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it("parses only versioned v2 usage and speech events", () => {
+    const usage = new CustomEvent(SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT, {
+      detail: {
+        source: "say-to-me-widget",
+        version: 2,
+        type: "insert-usage-prompt",
+        prompt: "use voice",
+      },
+    });
+    const started = new CustomEvent(SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT, {
+      detail: { source: "say-to-me-widget", version: 2, type: "speech-started", noteId: "42" },
+    });
+    const ended = new CustomEvent(SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT, {
+      detail: { source: "say-to-me-widget", version: 2, type: "speech-ended", noteId: "42" },
+    });
+    expect(parseSayToMeWidgetEvent(usage)).toMatchObject({
+      type: "insert-usage-prompt",
+      prompt: "use voice",
+    });
+    expect(parseSayToMeWidgetEvent(started)).toMatchObject({
+      type: "speech-started",
+      noteId: "42",
+    });
+    expect(parseSayToMeWidgetEvent(ended)).toMatchObject({ type: "speech-ended", noteId: "42" });
+    expect(
+      parseSayToMeWidgetEvent(
+        new CustomEvent(SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT, {
+          detail: { source: "say-to-me-widget", version: 1, type: "speech-started", noteId: "42" },
+        }),
+      ),
+    ).toBeNull();
   });
 });
