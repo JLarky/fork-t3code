@@ -22,6 +22,7 @@ import { Route as SettingsDiagnosticsRouteImport } from './routes/settings.diagn
 import { Route as SettingsConnectionsRouteImport } from './routes/settings.connections'
 import { Route as SettingsBetaRouteImport } from './routes/settings.beta'
 import { Route as SettingsArchivedRouteImport } from './routes/settings.archived'
+import { Route as DevSayToMeComponentsRouteImport } from './routes/dev.say-to-me-components'
 import { Route as ConnectCallbackRouteImport } from './routes/connect_.callback'
 import { Route as ChatDraftDraftIdRouteImport } from './routes/_chat.draft.$draftId'
 import { Route as ChatEnvironmentIdThreadIdRouteImport } from './routes/_chat.$environmentId.$threadId'
@@ -90,6 +91,11 @@ const SettingsArchivedRoute = SettingsArchivedRouteImport.update({
   path: '/archived',
   getParentRoute: () => SettingsRoute,
 } as any)
+const DevSayToMeComponentsRoute = DevSayToMeComponentsRouteImport.update({
+  id: '/dev/say-to-me-components',
+  path: '/dev/say-to-me-components',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConnectCallbackRoute = ConnectCallbackRouteImport.update({
   id: '/connect_/callback',
   path: '/connect/callback',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/pair': typeof PairRoute
   '/settings': typeof SettingsRouteWithChildren
   '/connect/callback': typeof ConnectCallbackRoute
+  '/dev/say-to-me-components': typeof DevSayToMeComponentsRoute
   '/settings/archived': typeof SettingsArchivedRoute
   '/settings/beta': typeof SettingsBetaRoute
   '/settings/connections': typeof SettingsConnectionsRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/pair': typeof PairRoute
   '/settings': typeof SettingsRouteWithChildren
   '/connect/callback': typeof ConnectCallbackRoute
+  '/dev/say-to-me-components': typeof DevSayToMeComponentsRoute
   '/settings/archived': typeof SettingsArchivedRoute
   '/settings/beta': typeof SettingsBetaRoute
   '/settings/connections': typeof SettingsConnectionsRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/pair': typeof PairRoute
   '/settings': typeof SettingsRouteWithChildren
   '/connect_/callback': typeof ConnectCallbackRoute
+  '/dev/say-to-me-components': typeof DevSayToMeComponentsRoute
   '/settings/archived': typeof SettingsArchivedRoute
   '/settings/beta': typeof SettingsBetaRoute
   '/settings/connections': typeof SettingsConnectionsRoute
@@ -168,6 +177,7 @@ export interface FileRouteTypes {
     | '/pair'
     | '/settings'
     | '/connect/callback'
+    | '/dev/say-to-me-components'
     | '/settings/archived'
     | '/settings/beta'
     | '/settings/connections'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/pair'
     | '/settings'
     | '/connect/callback'
+    | '/dev/say-to-me-components'
     | '/settings/archived'
     | '/settings/beta'
     | '/settings/connections'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/pair'
     | '/settings'
     | '/connect_/callback'
+    | '/dev/say-to-me-components'
     | '/settings/archived'
     | '/settings/beta'
     | '/settings/connections'
@@ -221,6 +233,7 @@ export interface RootRouteChildren {
   PairRoute: typeof PairRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   ConnectCallbackRoute: typeof ConnectCallbackRoute
+  DevSayToMeComponentsRoute: typeof DevSayToMeComponentsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -316,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsArchivedRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/dev/say-to-me-components': {
+      id: '/dev/say-to-me-components'
+      path: '/dev/say-to-me-components'
+      fullPath: '/dev/say-to-me-components'
+      preLoaderRoute: typeof DevSayToMeComponentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/connect_/callback': {
       id: '/connect_/callback'
       path: '/connect/callback'
@@ -386,6 +406,7 @@ const rootRouteChildren: RootRouteChildren = {
   PairRoute: PairRoute,
   SettingsRoute: SettingsRouteWithChildren,
   ConnectCallbackRoute: ConnectCallbackRoute,
+  DevSayToMeComponentsRoute: DevSayToMeComponentsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

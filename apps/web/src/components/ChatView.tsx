@@ -219,7 +219,7 @@ import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
-import { VoiceNotesBanner } from "../say-to-me/components/chat/VoiceNotesBanner";
+import { SayToMeWidgetHost } from "../say-to-me/SayToMeWidgetHost";
 import { voiceNotesSessionId } from "../say-to-me/voiceSessionId";
 import { useIdleCompletionDing } from "../say-to-me/useIdleCompletionDing";
 import { ChatHeader } from "./chat/ChatHeader";
@@ -1201,6 +1201,10 @@ function ChatViewContent(props: ChatViewProps) {
   const autoOpenPlanSidebar = settings.autoOpenPlanSidebar;
   const navigate = useNavigate();
   const { resolvedTheme } = useTheme();
+  const [sayToMeSpeechActive, setSayToMeSpeechActive] = useState(false);
+  const onSayToMeSpeechActivityChange = useCallback((active: boolean) => {
+    setSayToMeSpeechActive(active);
+  }, []);
   // Granular store selectors — avoid subscribing to prompt changes.
   const composerRuntimeMode = useComposerDraftStore(
     (store) => store.getComposerDraft(composerDraftTarget)?.runtimeMode ?? null,
@@ -2023,7 +2027,7 @@ function ChatViewContent(props: ChatViewProps) {
     threadError,
   });
   const isWorking = phase === "running" || isSendBusy || isConnecting || isRevertingCheckpoint;
-  useIdleCompletionDing({ threadKey: activeThreadKey, phase });
+  useIdleCompletionDing({ threadKey: activeThreadKey, phase, speechActive: sayToMeSpeechActive });
   const activeWorkStartedAt = deriveActiveWorkStartedAt(
     activeLatestTurn,
     activeThread?.session ?? null,
@@ -5725,15 +5729,17 @@ function ChatViewContent(props: ChatViewProps) {
             {/* Messages Wrapper */}
             <div className="relative flex min-h-0 flex-1 flex-col">
               {!isDraftHeroState ? (
-                <VoiceNotesBanner
-                  key={`${activeThread.environmentId}:${activeThread.id}`}
+                <SayToMeWidgetHost
+                  key={`say-to-me:${activeThread.environmentId}:${activeThread.id}`}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
-                  sessionTitle={activeThread.title}
-                  projectName={activeProject?.title}
-                  workingDirectory={activeWorkspaceRoot}
-                  branchName={activeThread.branch}
+                  sessionId={voiceNotesSessionId(activeThread.environmentId, activeThread.id)}
+                  title={activeThread.title}
+                  project={activeProject?.title}
+                  cwd={activeWorkspaceRoot}
+                  branch={activeThread.branch}
                   onInsertUsagePrompt={insertSayToMeUsagePrompt}
+                  onSpeechActivityChange={onSayToMeSpeechActivityChange}
                 />
               ) : null}
               {/* Messages — LegendList handles virtualization and scrolling internally */}

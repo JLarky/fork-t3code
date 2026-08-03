@@ -12,6 +12,7 @@ export type IdleCompletionDingInput = {
    * button: `running` shows stop, `ready` shows send again.
    */
   phase: SessionPhase;
+  speechActive?: boolean;
 };
 
 /**
@@ -35,8 +36,14 @@ export function shouldPlayIdleCompletionDing(
  * Plays the Say To Me idle chime when the watched thread finishes its turn. The
  * chime is queued behind any voice note being spoken so the two never overlap.
  */
-export function useIdleCompletionDing({ threadKey, phase }: IdleCompletionDingInput): void {
+export function useIdleCompletionDing({
+  threadKey,
+  phase,
+  speechActive = false,
+}: IdleCompletionDingInput): void {
   const previousRef = useRef<IdleCompletionDingInput | null>(null);
+  const speechActiveRef = useRef(speechActive);
+  speechActiveRef.current = speechActive;
 
   useEffect(() => {
     const next = { threadKey, phase };
@@ -48,7 +55,7 @@ export function useIdleCompletionDing({ threadKey, phase }: IdleCompletionDingIn
       async () => {
         // Speech started outside the queue (a note already being read aloud)
         // still has to finish before the chime is audible.
-        while (isSpeechActive()) await delay(200);
+        while (speechActiveRef.current || isSpeechActive()) await delay(200);
         await playIdleCompletionDing();
         await delay(IDLE_COMPLETION_DING_DURATION_MS);
       },

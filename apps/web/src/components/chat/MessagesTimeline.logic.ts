@@ -177,6 +177,11 @@ export type MessagesTimelineRow =
     }
   | { kind: "working"; id: string; createdAt: string | null };
 
+/** Keep row identities distinct when message, work, and plan IDs share a value. */
+export function messagesTimelineRowKey(row: Pick<MessagesTimelineRow, "kind" | "id">): string {
+  return `${row.kind}:${row.id}`;
+}
+
 export interface StableMessagesTimelineRowsState {
   byId: Map<string, MessagesTimelineRow>;
   result: MessagesTimelineRow[];

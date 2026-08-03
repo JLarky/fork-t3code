@@ -19,7 +19,6 @@ import { SayToMeTimerPanel, timerRelativeLabel } from "../timers/SayToMeTimerPan
 import { useSayToMeTimers } from "../timers/useSayToMeTimers";
 import { enqueueSound } from "../../audioQueue";
 import { SAY_TO_ME_UI_URL, sayToMeAttachmentUrl, sayToMeSessionUrl } from "../../sayToMeUi";
-import { SayToMeWidgetHost } from "../../SayToMeWidgetHost";
 import { useSoundUnlock } from "../../useSoundUnlock";
 import { voiceNotesSessionId } from "../../voiceSessionId";
 
@@ -43,7 +42,7 @@ function voiceNotesUrl(sessionId: string): string {
   return `/api/voice-notes/${encodeURIComponent(sessionId)}`;
 }
 
-type VoiceNote = {
+export type VoiceNote = {
   readonly id: string;
   readonly author: string;
   readonly time: string;
@@ -55,7 +54,7 @@ type VoiceNote = {
   readonly sessions: ReadonlyArray<SayToMeSession>;
 };
 
-type SayToMeAttachment = {
+export type SayToMeAttachment = {
   readonly id: number;
   readonly mimeType: string;
   readonly originalName: string;
@@ -74,7 +73,7 @@ type SayToMeMessage = {
   readonly sessions?: ReadonlyArray<SayToMeSession>;
 };
 
-type SayToMeSession = {
+export type SayToMeSession = {
   readonly id: string;
   readonly alias?: string | null;
   readonly title?: string | null;
@@ -89,9 +88,16 @@ type SayToMeMessagesPayload = {
   readonly messages?: ReadonlyArray<SayToMeMessage>;
 };
 
-type VoiceNoteStatus = "queued" | "speaking" | "played" | "stopped";
+export type VoiceNoteStatus = "queued" | "speaking" | "played" | "stopped";
 
-type SessionState = "loading" | "ready" | "missing" | "unavailable";
+export type SessionState = "loading" | "ready" | "missing" | "unavailable";
+
+export type VoiceNotesDemoFixture = {
+  readonly notes: ReadonlyArray<VoiceNote>;
+  readonly sessionState?: SessionState;
+  readonly hasLoadedRemoteNotes?: boolean;
+  readonly playingId?: string | null;
+};
 
 const SAY_TO_ME_SQL_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/;
 
@@ -390,35 +396,53 @@ type VoiceNotesBannerProps = {
   readonly workingDirectory?: string | null | undefined;
   readonly branchName?: string | null | undefined;
   readonly onInsertUsagePrompt: () => void;
+  /** Development-only fixture input. It bypasses network, timers, and autoplay. */
+  readonly demoFixture?: VoiceNotesDemoFixture;
 };
 
 export function VoiceNotesBanner({
   environmentId,
   threadId,
-  sessionTitle,
-  projectName,
-  workingDirectory,
-  branchName,
   onInsertUsagePrompt,
+  demoFixture,
 }: VoiceNotesBannerProps) {
   const sessionId = voiceNotesSessionId(environmentId, threadId);
   const notesUrl = voiceNotesUrl(sessionId);
-  const [notes, setNotes] = useState<ReadonlyArray<VoiceNote>>([]);
-  const [hasLoadedRemoteNotes, setHasLoadedRemoteNotes] = useState(false);
-  const [sessionState, setSessionState] = useState<SessionState>("loading");
+  const [notes, setNotes] = useState<ReadonlyArray<VoiceNote>>(() => demoFixture?.notes ?? []);
+  const [hasLoadedRemoteNotes, setHasLoadedRemoteNotes] = useState(
+    demoFixture?.hasLoadedRemoteNotes ?? demoFixture !== undefined,
+  );
+  const [sessionState, setSessionState] = useState<SessionState>(
+    () => demoFixture?.sessionState ?? "loading",
+  );
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const [timersOpen, setTimersOpen] = useState(false);
   const { copyToClipboard: copySessionMention, isCopied: isSessionMentionCopied } =
     useCopyToClipboard({ target: "session mention" });
   const { showEnableSound, enableSound, reportPermissionIssue } = useSoundUnlock();
-  const { timers, now: timerNow, refresh: refreshTimers } = useSayToMeTimers(sessionId);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useLocalStorage(
+  const {
+    timers,
+    now: timerNow,
+    refresh: refreshTimers,
+  } = useSayToMeTimers(sessionId, {
+    disabled: demoFixture !== undefined,
+  });
+  const [playingId, setPlayingId] = useState<string | null>(() => demoFixture?.playingId ?? null);
+  const [storedCollapsed, setStoredCollapsed] = useLocalStorage(
     SAY_TO_ME_BANNER_COLLAPSED_STORAGE_KEY,
     false,
     CollapsedSchema,
   );
+  const [fixtureCollapsed, setFixtureCollapsed] = useState(false);
+  const collapsed = demoFixture !== undefined ? fixtureCollapsed : storedCollapsed;
+  const setCollapsed = (value: boolean | ((current: boolean) => boolean)) => {
+    if (demoFixture !== undefined) {
+      setFixtureCollapsed(value);
+    } else {
+      setStoredCollapsed(value);
+    }
+  };
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const playRequestRef = useRef(0);
   const autoplayLockRef = useRef(false);
@@ -426,14 +450,16 @@ export function VoiceNotesBanner({
   const revisionRef = useRef(-1);
 
   useEffect(() => {
+    if (demoFixture !== undefined) return;
     return () => {
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
     };
-  }, []);
+  }, [demoFixture]);
 
   useEffect(() => {
+    if (demoFixture !== undefined) return;
     let disposed = false;
     let events: EventSource | null = null;
 
@@ -502,9 +528,10 @@ export function VoiceNotesBanner({
       disposed = true;
       events?.close();
     };
-  }, [notesUrl, reloadToken]);
+  }, [demoFixture, notesUrl, reloadToken]);
 
   const createSession = async () => {
+    if (demoFixture !== undefined) return;
     setIsCreatingSession(true);
     try {
       const response = await fetch(notesUrl, { method: "POST", credentials: "include" });
@@ -523,6 +550,7 @@ export function VoiceNotesBanner({
 
   const updateNoteStatus = (noteId: string, status: VoiceNoteStatus) => {
     setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, status } : note)));
+    if (demoFixture !== undefined) return;
     if (!hasLoadedRemoteNotes || !/^[0-9]+$/.test(noteId)) return;
     void fetch(`${notesUrl}/messages/${encodeURIComponent(noteId)}/status`, {
       method: "POST",
@@ -534,7 +562,7 @@ export function VoiceNotesBanner({
 
   const stop = () => {
     const activeId = playingId;
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    if (demoFixture === undefined && typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
     utteranceRef.current = null;
@@ -553,6 +581,11 @@ export function VoiceNotesBanner({
   };
 
   const play = (note: VoiceNote) => {
+    if (demoFixture !== undefined) {
+      setPlayingId(note.id);
+      updateNoteStatus(note.id, "speaking");
+      return;
+    }
     stop();
     const playRequest = playRequestRef.current;
 
@@ -619,7 +652,8 @@ export function VoiceNotesBanner({
   };
 
   useEffect(() => {
-    if (!hasLoadedRemoteNotes || playingId || autoplayLockRef.current) return;
+    if (demoFixture !== undefined || !hasLoadedRemoteNotes || playingId || autoplayLockRef.current)
+      return;
     const nextNote = notes
       .slice()
       .toReversed()
@@ -710,15 +744,6 @@ export function VoiceNotesBanner({
                     "ID"
                   )}
                 </Button>
-                <SayToMeWidgetHost
-                  sessionId={sessionId}
-                  environmentId={environmentId}
-                  threadId={threadId}
-                  title={sessionTitle}
-                  project={projectName}
-                  cwd={workingDirectory}
-                  branch={branchName}
-                />
                 {!collapsed ? (
                   <Button
                     size="icon-xs"
