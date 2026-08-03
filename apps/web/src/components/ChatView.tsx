@@ -5730,7 +5730,7 @@ function ChatViewContent(props: ChatViewProps) {
             <div className="relative flex min-h-0 flex-1 flex-col">
               {!isDraftHeroState ? (
                 <SayToMeWidgetHost
-                  key={activeThread.id}
+                  key={`say-to-me:${activeThread.environmentId}:${activeThread.id}`}
                   environmentId={activeThread.environmentId}
                   threadId={activeThread.id}
                   sessionId={voiceNotesSessionId(activeThread.environmentId, activeThread.id)}

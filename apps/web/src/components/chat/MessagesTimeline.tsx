@@ -67,6 +67,7 @@ import { MessageCopyButton } from "./MessageCopyButton";
 import {
   computeStableMessagesTimelineRows,
   deriveMessagesTimelineRows,
+  messagesTimelineRowKey,
   normalizeCompactToolLabel,
   resolveAssistantMessageCopyState,
   resolveTimelineIsAtEnd,
@@ -540,7 +541,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 });
 
 function keyExtractor(item: MessagesTimelineRow) {
-  return item.id;
+  return messagesTimelineRowKey(item);
 }
 
 function getItemType(item: MessagesTimelineRow) {

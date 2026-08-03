@@ -5,6 +5,7 @@ const SAY_TO_ME_WIDGET_HMR_PATH = "/server/embed/solid/widget-hmr.ts";
 
 export const SAY_TO_ME_WIDGET_TAG = "say-to-me-widget" as const;
 export const SAY_TO_ME_WIDGET_BANNER_API_VERSION = 2 as const;
+export const SAY_TO_ME_WIDGET_PARK_SESSION_VERSION = 1 as const;
 export const SAY_TO_ME_WIDGET_STORAGE_KEY = "t3code:say-to-me-banner-collapsed:v1" as const;
 export const SAY_TO_ME_WIDGET_NOTES_BASE_URL = "/api/voice-notes" as const;
 export const SAY_TO_ME_WIDGET_TIMERS_BASE_URL = "/api/say-to-me-timers" as const;
@@ -15,6 +16,7 @@ export const SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT = "say-to-me-speech-ended" as c
 
 const WIDGET_SOURCE = "say-to-me-widget";
 const WIDGET_VERSION = SAY_TO_ME_WIDGET_BANNER_API_VERSION;
+const PARK_SESSION_VERSION = SAY_TO_ME_WIDGET_PARK_SESSION_VERSION;
 
 declare global {
   interface HTMLElementTagNameMap {
@@ -25,7 +27,7 @@ declare global {
 export type SayToMeWidgetEventDetail =
   | {
       readonly source: typeof WIDGET_SOURCE;
-      readonly version: 2;
+      readonly version: typeof PARK_SESSION_VERSION;
       readonly type: "park-session";
       readonly sessionId: string;
     }
@@ -170,10 +172,11 @@ export function parseSayToMeWidgetEvent(
 ): SayToMeWidgetEventDetail | null {
   if (!(event instanceof CustomEvent) || !isRecord(event.detail)) return null;
   const detail = event.detail;
-  if (detail.source !== WIDGET_SOURCE || detail.version !== WIDGET_VERSION) return null;
+  if (detail.source !== WIDGET_SOURCE) return null;
   if (detail.type === "park-session") {
     if (
       event.type !== SAY_TO_ME_WIDGET_PARK_SESSION_EVENT ||
+      detail.version !== PARK_SESSION_VERSION ||
       typeof detail.sessionId !== "string" ||
       !detail.sessionId.trim() ||
       (expectedSessionId !== undefined && detail.sessionId !== expectedSessionId)
@@ -181,6 +184,7 @@ export function parseSayToMeWidgetEvent(
       return null;
     return detail as SayToMeWidgetEventDetail;
   }
+  if (detail.version !== WIDGET_VERSION) return null;
   if (detail.type === "insert-usage-prompt") {
     return event.type === SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT &&
       typeof detail.prompt === "string"
@@ -209,7 +213,7 @@ export function isSayToMeParkSessionDetail(detail: unknown, expectedSessionId?: 
   const record = detail as Record<string, unknown>;
   if (
     record.source !== WIDGET_SOURCE ||
-    record.version !== WIDGET_VERSION ||
+    record.version !== PARK_SESSION_VERSION ||
     record.type !== "park-session" ||
     typeof record.sessionId !== "string" ||
     record.sessionId.trim().length === 0
@@ -231,6 +235,41 @@ export function isSayToMeParkSessionEvent(event: Event, expectedSessionId?: stri
     return false;
   }
   return isSayToMeParkSessionDetail(event.detail, expectedSessionId);
+}
+
+export type SayToMeWidgetEventHandlers = {
+  readonly onInsertUsagePrompt?: (() => void) | undefined;
+  readonly onSpeechActivityChange?: ((active: boolean) => void) | undefined;
+};
+
+/** Bind the strict widget event contract and return the exact listener cleanup. */
+export function bindSayToMeWidgetEvents(
+  node: HTMLElement,
+  sessionId: string,
+  context: ParkSessionContext,
+  handlers: SayToMeWidgetEventHandlers,
+): () => void {
+  const onWidgetEvent = (event: Event) => {
+    const detail = parseSayToMeWidgetEvent(event, sessionId);
+    if (!detail) return;
+    if (detail.type === "park-session") {
+      assignParkSessionFromEvent(event, sessionId, context);
+    } else if (detail.type === "insert-usage-prompt") {
+      handlers.onInsertUsagePrompt?.();
+    } else {
+      handlers.onSpeechActivityChange?.(detail.type === "speech-started");
+    }
+  };
+  node.addEventListener(SAY_TO_ME_WIDGET_PARK_SESSION_EVENT, onWidgetEvent);
+  node.addEventListener(SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT, onWidgetEvent);
+  node.addEventListener(SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT, onWidgetEvent);
+  node.addEventListener(SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT, onWidgetEvent);
+  return () => {
+    node.removeEventListener(SAY_TO_ME_WIDGET_PARK_SESSION_EVENT, onWidgetEvent);
+    node.removeEventListener(SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT, onWidgetEvent);
+    node.removeEventListener(SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT, onWidgetEvent);
+    node.removeEventListener(SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT, onWidgetEvent);
+  };
 }
 
 /**

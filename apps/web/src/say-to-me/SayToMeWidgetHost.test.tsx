@@ -40,7 +40,7 @@ describe("SayToMeWidgetHost delivery", () => {
     const markup = renderHost();
     expect(markup).toContain('notes-base-url="/api/voice-notes"');
     expect(markup).toContain('timers-base-url="/api/say-to-me-timers"');
-    expect(markup).toContain('ui-base-url="https://say.localhost:1311"');
+    expect(markup).toContain('ui-base-url=""');
     expect(markup).toContain('storage-key="t3code:say-to-me-banner-collapsed:v1"');
     expect(markup).not.toContain("say-to-me-widget-script");
   });

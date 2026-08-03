@@ -3,9 +3,17 @@ import {
   computeStableMessagesTimelineRows,
   computeMessageDurationStart,
   deriveMessagesTimelineRows,
+  messagesTimelineRowKey,
   normalizeCompactToolLabel,
   resolveAssistantMessageCopyState,
 } from "./MessagesTimeline.logic";
+
+describe("messagesTimelineRowKey", () => {
+  it("namespaces source IDs so mixed timeline entries cannot collide", () => {
+    expect(messagesTimelineRowKey({ kind: "message", id: "thread-1" })).toBe("message:thread-1");
+    expect(messagesTimelineRowKey({ kind: "work", id: "thread-1" })).toBe("work:thread-1");
+  });
+});
 
 describe("computeMessageDurationStart", () => {
   it("returns message createdAt when there is no preceding user message", () => {

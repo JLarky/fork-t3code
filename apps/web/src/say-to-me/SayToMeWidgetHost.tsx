@@ -1,16 +1,11 @@
 import { createElement, useEffect, useRef, useState } from "react";
 
-import { SAY_TO_ME_UI_URL } from "./sayToMeUi";
+import { resolveSayToMeWidgetUiBaseUrl } from "./sayToMeUi";
 import {
-  assignParkSessionFromEvent,
+  bindSayToMeWidgetEvents,
   ensureSayToMeWidgetDefinition,
-  parseSayToMeWidgetEvent,
   resolveSayToMeWidgetHmrModuleUrl,
   waitForSayToMeWidgetV2,
-  SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT,
-  SAY_TO_ME_WIDGET_PARK_SESSION_EVENT,
-  SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT,
-  SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT,
   SAY_TO_ME_WIDGET_STORAGE_KEY,
   SAY_TO_ME_WIDGET_TAG,
   SAY_TO_ME_WIDGET_TIMERS_BASE_URL,
@@ -49,21 +44,10 @@ export function SayToMeWidgetHost({
     let disposed = false;
     const context = { environmentId, threadId, title, project, cwd, branch };
 
-    const onWidgetEvent = (event: Event) => {
-      const detail = parseSayToMeWidgetEvent(event, sessionId);
-      if (!detail) return;
-      if (detail.type === "park-session") {
-        assignParkSessionFromEvent(event, sessionId, context);
-      } else if (detail.type === "insert-usage-prompt") {
-        onInsertUsagePrompt?.();
-      } else {
-        onSpeechActivityChange?.(detail.type === "speech-started");
-      }
-    };
-    node.addEventListener(SAY_TO_ME_WIDGET_PARK_SESSION_EVENT, onWidgetEvent);
-    node.addEventListener(SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT, onWidgetEvent);
-    node.addEventListener(SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT, onWidgetEvent);
-    node.addEventListener(SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT, onWidgetEvent);
+    const unbindWidgetEvents = bindSayToMeWidgetEvents(node, sessionId, context, {
+      onInsertUsagePrompt,
+      onSpeechActivityChange,
+    });
 
     void ensureSayToMeWidgetDefinition(hmrModuleUrl)
       .then(() => waitForSayToMeWidgetV2(widget, CAPABILITY_TIMEOUT_MS))
@@ -82,10 +66,7 @@ export function SayToMeWidgetHost({
 
     return () => {
       disposed = true;
-      node.removeEventListener(SAY_TO_ME_WIDGET_PARK_SESSION_EVENT, onWidgetEvent);
-      node.removeEventListener(SAY_TO_ME_WIDGET_INSERT_USAGE_PROMPT_EVENT, onWidgetEvent);
-      node.removeEventListener(SAY_TO_ME_WIDGET_SPEECH_STARTED_EVENT, onWidgetEvent);
-      node.removeEventListener(SAY_TO_ME_WIDGET_SPEECH_ENDED_EVENT, onWidgetEvent);
+      unbindWidgetEvents();
       onSpeechActivityChange?.(false);
     };
   }, [
@@ -111,7 +92,7 @@ export function SayToMeWidgetHost({
         "session-id": sessionId,
         "notes-base-url": SAY_TO_ME_WIDGET_NOTES_BASE_URL,
         "timers-base-url": SAY_TO_ME_WIDGET_TIMERS_BASE_URL,
-        "ui-base-url": SAY_TO_ME_UI_URL,
+        "ui-base-url": resolveSayToMeWidgetUiBaseUrl() ?? "",
         "storage-key": SAY_TO_ME_WIDGET_STORAGE_KEY,
         "data-testid": "say-to-me-widget-element",
         hidden: capability !== "ready",
