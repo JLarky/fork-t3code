@@ -842,7 +842,7 @@ it.layer(TestLayer)("GitVcsDriver core integration", (it) => {
           path: worktreePath,
           refName: resolvedBase.commitSha,
           newRefName: "t3code/fetched-origin",
-          baseRefName: resolvedBase.remoteRefName,
+          baseRefName: resolvedBase.remoteRefName ?? initialBranch,
         });
 
         assert.equal(yield* git(worktreePath, ["rev-parse", "HEAD"]), remoteHead);
@@ -857,6 +857,119 @@ it.layer(TestLayer)("GitVcsDriver core integration", (it) => {
         const status = yield* driver.statusDetails(worktreePath);
         assert.equal(status.aheadCount, 0);
         assert.equal(status.aheadOfDefaultCount, 0);
+      }),
+    );
+
+    it.effect("resolves a local branch through its configured upstream", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const remote = yield* makeTmpDir("git-remote-");
+        const { initialBranch } = yield* initRepoWithCommit(cwd);
+        yield* git(remote, ["init", "--bare"]);
+        yield* git(cwd, ["remote", "add", "origin", remote]);
+        yield* git(cwd, ["push", "-u", "origin", initialBranch]);
+        yield* git(cwd, ["branch", "-m", "main-main"]);
+        yield* git(cwd, ["branch", "--set-upstream-to", `origin/${initialBranch}`, "main-main"]);
+
+        const driver = yield* GitVcsDriver.GitVcsDriver;
+        const resolved = yield* driver.resolveRemoteTrackingCommit({
+          cwd,
+          refName: "main-main",
+          fallbackRemoteName: "origin",
+        });
+
+        assert.deepEqual(resolved, {
+          commitSha: yield* git(cwd, ["rev-parse", `origin/${initialBranch}`]),
+          remoteRefName: `origin/${initialBranch}`,
+        });
+      }),
+    );
+
+    it.effect("falls back to a local branch when no remote counterpart exists", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const remote = yield* makeTmpDir("git-remote-");
+        const { initialBranch } = yield* initRepoWithCommit(cwd);
+        yield* git(remote, ["init", "--bare"]);
+        yield* git(cwd, ["remote", "add", "origin", remote]);
+        yield* git(cwd, ["push", "-u", "origin", initialBranch]);
+        yield* git(cwd, ["checkout", "-b", "my-local-branch"]);
+        yield* writeTextFile(cwd, "local.txt", "local\n");
+        yield* git(cwd, ["add", "local.txt"]);
+        yield* git(cwd, ["commit", "-m", "local commit"]);
+
+        const driver = yield* GitVcsDriver.GitVcsDriver;
+        const localHead = yield* git(cwd, ["rev-parse", "HEAD"]);
+        const resolved = yield* driver.resolveRemoteTrackingCommit({
+          cwd,
+          refName: "my-local-branch",
+          fallbackRemoteName: "origin",
+        });
+
+        assert.deepEqual(resolved, {
+          commitSha: localHead,
+          remoteRefName: null,
+        });
+      }),
+    );
+
+    it.effect("prefers the branch's own upstream over the fallback remote", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const origin = yield* makeTmpDir("git-origin-");
+        const other = yield* makeTmpDir("git-other-");
+        const { initialBranch } = yield* initRepoWithCommit(cwd);
+        yield* git(origin, ["init", "--bare"]);
+        yield* git(other, ["init", "--bare"]);
+        yield* git(cwd, ["remote", "add", "origin", origin]);
+        yield* git(cwd, ["remote", "add", "other", other]);
+        yield* git(cwd, ["push", "-q", "origin", initialBranch]);
+        yield* writeTextFile(cwd, "other.txt", "other\n");
+        yield* git(cwd, ["add", "other.txt"]);
+        yield* git(cwd, ["commit", "-m", "other commit"]);
+        yield* git(cwd, ["push", "-q", "other", initialBranch]);
+        yield* git(cwd, ["fetch", "-q", "origin"]);
+        yield* git(cwd, ["branch", "--set-upstream-to", `other/${initialBranch}`, initialBranch]);
+
+        const driver = yield* GitVcsDriver.GitVcsDriver;
+        const resolved = yield* driver.resolveRemoteTrackingCommit({
+          cwd,
+          refName: initialBranch,
+          fallbackRemoteName: "origin",
+        });
+
+        // The configured upstream is the branch's own remote state, so it wins over
+        // the caller's fallback remote even when both have the branch.
+        assert.deepEqual(resolved, {
+          commitSha: yield* git(cwd, ["rev-parse", `other/${initialBranch}`]),
+          remoteRefName: `other/${initialBranch}`,
+        });
+      }),
+    );
+
+    it.effect("fails with an actionable error when neither a remote nor a local ref exists", () =>
+      Effect.gen(function* () {
+        const cwd = yield* makeTmpDir();
+        const remote = yield* makeTmpDir("git-remote-");
+        yield* initRepoWithCommit(cwd);
+        yield* git(remote, ["init", "--bare"]);
+        yield* git(cwd, ["remote", "add", "origin", remote]);
+
+        const driver = yield* GitVcsDriver.GitVcsDriver;
+        const error = yield* driver
+          .resolveRemoteTrackingCommit({
+            cwd,
+            refName: "ghost-branch",
+            fallbackRemoteName: "origin",
+          })
+          .pipe(Effect.flip);
+
+        assert.deepInclude(error, {
+          _tag: "GitCommandError",
+          operation: "GitVcsDriver.resolveRemoteTrackingCommit",
+          detail:
+            "Could not resolve 'ghost-branch' to a remote-tracking ref (tried its configured upstream and 'origin/ghost-branch') or to a local branch.",
+        });
       }),
     );
 
